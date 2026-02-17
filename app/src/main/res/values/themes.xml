@@ -1,0 +1,5 @@
+<resources>
+    <!-- Base theme — Compose handles all visual styling via CampusFindTheme.
+         This XML theme only satisfies the system window before Compose takes over. -->
+    <style name="Theme.CampusFind" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
