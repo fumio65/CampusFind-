@@ -2,7 +2,7 @@ package com.campusfind.data.repository
 
 import com.campusfind.data.local.database.UserDao
 import com.campusfind.data.local.database.UserEntity
-import com.example.campusfind.domain.repository.User
+import com.campusfind.domain.model.User
 import com.campusfind.domain.repository.UserRepository
 import java.security.MessageDigest
 import java.util.UUID
@@ -14,24 +14,7 @@ import javax.inject.Singleton
  *
  * Implementation of UserRepository using Room for local storage and SHA-256 for password hashing.
  *
- * Why @Inject constructor:
- * - Tells Hilt it can construct this class automatically by providing UserDao
- * - UserDao is provided by DatabaseModule (TASK-100a)
- * - No manual construction needed — Hilt wires everything at compile time
- *
- * Why @Singleton:
- * - Repository should be shared across the entire app — one instance for consistency
- * - Multiple instances could cause race conditions on database writes
- *
- * Why SHA-256 for password hashing:
- * - Acceptable for academic scope (DEC-016)
- * - Better than plain text, worse than bcrypt (bcrypt would require external library)
- * - Phase 2 replaces this with Firebase Auth — hashing moves to server
- *
- * Why Result<User> wrapper:
- * - register() can fail if email already exists (Room throws SQLiteConstraintException)
- * - login() can fail if email not found or password incorrect
- * - Result.success / Result.failure makes error handling explicit in UseCases
+ * CRITICAL: import com.campusfind.domain.model.User (not com.example or repository package)
  *
  * See: DEC-002 (Repository), DEC-009 (UUID), DEC-016 (local auth),
  *      DEC-022 (Hilt DI), TASK-100c (bound by RepositoryModule), TASK-106
