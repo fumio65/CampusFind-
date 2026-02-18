@@ -13,13 +13,11 @@ import javax.inject.Singleton
 /**
  * FILE: app/src/main/java/com/campusfind/di/AppModule.kt
  *
- * Provides app-wide utilities — SharedPreferences and SessionManager.
- * Uses @Provides because both require manual construction.
+ * IMPORTANT: This module provides SharedPreferences, and SessionManager
+ * constructs itself via @Inject constructor by receiving SharedPreferences.
  *
- * SharedPreferences is provided here so SessionManager receives it
- * via constructor injection rather than creating it itself (DIP).
- *
- * See: DEC-017 (session storage), DEC-022 (Hilt), TASK-100b
+ * We do NOT need a provideSessionManager() method here because SessionManager
+ * has @Inject constructor — Hilt builds it automatically.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,11 +31,6 @@ object AppModule {
         return context.getSharedPreferences("campusfind_prefs", Context.MODE_PRIVATE)
     }
 
-    @Provides
-    @Singleton
-    fun provideSessionManager(
-        prefs: SharedPreferences
-    ): SessionManager {
-        return SessionManager(prefs)
-    }
+    // SessionManager is constructed automatically via @Inject constructor
+    // No need for provideSessionManager() method
 }

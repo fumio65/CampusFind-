@@ -59,7 +59,7 @@ data class LostItemEntity(
     @ColumnInfo(name = "status")
     val status: String,                         // "LOST" or "FOUND" — stored as String (DEC-010)
 
-    @ColumnInfo(name = "reported_by", index = true)
+    @ColumnInfo(name = "reported_by")
     val reportedBy: String,                     // FK → users.id
 
     @ColumnInfo(name = "reported_at")
