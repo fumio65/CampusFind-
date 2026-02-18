@@ -8,22 +8,39 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.ui.navigation.CampusFindNavGraph
 import com.campusfind.ui.theme.CampusFindTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * FILE: app/src/main/java/com/campusfind/MainActivity.kt
  *
  * Single Activity for CampusFind+ (DEC-013).
- * @AndroidEntryPoint required so Hilt can inject into this Activity
- * and all hiltViewModel() calls inside Composables work correctly.
  *
- * TODO TASK-123: Replace Surface body with CampusFindNavGraph(rememberNavController())
+ * Why @AndroidEntryPoint:
+ * - Required for Hilt to inject SessionManager into this Activity
+ * - Also enables hiltViewModel() to work in all child Composables
  *
- * See: DEC-013, DEC-022, TASK-123
+ * Why @Inject SessionManager:
+ * - NavGraph needs SessionManager to determine the startDestination
+ * - Hilt provides it automatically via field injection
+ * - lateinit var allows Hilt to set it before onCreate() runs
+ *
+ * Navigation flow:
+ * - rememberNavController() creates a NavController
+ * - CampusFindNavGraph receives it + SessionManager
+ * - NavGraph decides: logged in → Home, not logged in → Login
+ *
+ * See: DEC-013 (Single Activity), DEC-022 (Hilt), TASK-110
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var sessionManager: SessionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +51,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // TODO TASK-123: CampusFindNavGraph(rememberNavController())
+                    val navController = rememberNavController()
+                    CampusFindNavGraph(
+                        navController = navController,
+                        sessionManager = sessionManager
+                    )
                 }
             }
         }
