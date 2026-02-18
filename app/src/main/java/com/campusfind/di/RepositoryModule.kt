@@ -1,6 +1,7 @@
 package com.campusfind.di
 
 import com.campusfind.data.repository.LostItemRepositoryImpl
+import com.campusfind.data.repository.UserRepositoryImpl
 import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.UserRepository
 import dagger.Binds

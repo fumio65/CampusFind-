@@ -1,4 +1,4 @@
-package com.example.campusfind.ui.theme
+package com.campusfind.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
