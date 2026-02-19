@@ -178,14 +178,14 @@ All of this must work with **Airplane Mode ON**.
   - Empty state when no items
   - **Acceptance:** User B logs in and sees User A's report without any sync
 
-- [ ] **TASK-113** Build AddItemScreen + AddItemViewModel (Demo step 4)
+- [x] **TASK-113** Build AddItemScreen + AddItemViewModel (Demo step 4)
   - Fields: Title (required, max 100 chars) + Description (required, max 500 chars)
   - `reportedBy` set to `SessionManager.currentUserId` automatically
   - `reportedAt` = `System.currentTimeMillis()`
   - On submit: insert to Room, navigate back to Home
   - **Acceptance:** Demo step 4 — report appears in list immediately after posting
 
-- [ ] **TASK-114** Build DetailScreen + DetailViewModel (Demo steps 10, 13–14)
+- [x] **TASK-114** Build DetailScreen + DetailViewModel (Demo steps 10, 13–14)
   - Show: item photo placeholder, title, status badge, description, reporter name, timestamp
   - **Ownership check:** `isOwner = item.reportedBy == sessionManager.currentUserId`
   - If `isOwner` AND status == LOST → show "Mark as Found" button (purple)
@@ -195,14 +195,14 @@ All of this must work with **Airplane Mode ON**.
     - Demo step 10: User B sees detail with no action buttons ✓
     - Demo step 13: User A sees "Mark as Found" button on their own item ✓
 
-- [ ] **TASK-115** Implement "Mark as Found" (Demo step 14)
+- [x] **TASK-115** Implement "Mark as Found" (Demo step 14)
   - DetailViewModel.markAsFound(itemId) → calls repository.updateStatus(id, FOUND)
   - UI updates immediately via StateFlow (no refresh needed)
   - StatusBadge changes from red LOST to green FOUND
   - "Mark as Found" button disappears after status change
   - **Acceptance:** Demo step 14 passes; status persists after app restart
 
-- [ ] **TASK-116** Implement Delete Report (⋮ menu)
+- [x] **TASK-116** Implement Delete Report (⋮ menu)
   - Overflow menu visible only to item owner
   - Shows confirmation dialog: "Delete this report? This cannot be undone."
   - On confirm: `repository.deleteItem(id)` → navigate back to Home

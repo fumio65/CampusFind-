@@ -12,35 +12,38 @@ import com.campusfind.ui.screens.additem.AddItemScreen
 import com.campusfind.ui.screens.detail.DetailScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
+import com.campusfind.ui.screens.onboarding.OnboardingScreen
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
 
 /**
  * FILE: app/src/main/java/com/campusfind/ui/navigation/NavGraph.kt
  *
- * Navigation graph with auth guard — COMPLETE for MCO 1.
+ * Navigation graph with onboarding + auth guard.
  *
- * All routes wired ✅:
- * - Login ✅
- * - Register ✅
- * - Home ✅
- * - AddItem ✅
- * - Detail ✅ (TASK-114)
- * - Settings ✅
+ * UPDATED: Added onboarding flow.
  *
- * See: DEC-013 (Single Activity), TASK-110, TASK-112, TASK-113, TASK-114, TASK-123
+ * Startup logic:
+ * 1. If onboarding not completed → Onboarding screen
+ * 2. Else if logged in → Home
+ * 3. Else → Login
+ *
+ * See: DEC-013 (Single Activity), TASK-110, TASK-118
  */
 @Composable
 fun CampusFindNavGraph(
     navController: NavHostController,
     sessionManager: SessionManager
 ) {
-    // Determine start destination based on login state
-    val startDestination = remember(sessionManager.isLoggedIn) {
-        if (sessionManager.isLoggedIn) {
-            Screen.Home.route
-        } else {
-            Screen.Login.route
+    // Determine start destination based on state
+    val startDestination = remember(
+        sessionManager.hasCompletedOnboarding,
+        sessionManager.isLoggedIn
+    ) {
+        when {
+            !sessionManager.hasCompletedOnboarding -> Screen.Onboarding.route
+            sessionManager.isLoggedIn -> Screen.Home.route
+            else -> Screen.Login.route
         }
     }
 
@@ -48,6 +51,19 @@ fun CampusFindNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+
+        // ── Onboarding ───────────────────────────────────────────────────────
+
+        composable(Screen.Onboarding.route) {
+            OnboardingScreen(
+                onComplete = {
+                    sessionManager.markOnboardingCompleted()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                }
+            )
+        }
 
         // ── Auth Routes ──────────────────────────────────────────────────────
 
