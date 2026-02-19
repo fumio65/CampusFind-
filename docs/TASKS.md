@@ -211,42 +211,42 @@ All of this must work with **Airplane Mode ON**.
 
 ### 🟡 High — Remaining Phase 1 Screens
 
-- [ ] **TASK-117** Build UserProfileScreen
+- [x] **TASK-117** Build UserProfileScreen
   - Shows: name, email, joined date, items posted, trust score (local calculation)
   - Lists user's own items with status badges
   - Quick actions: Post Item, Browse All
   - **Phase 1 only** — no sync badge, no Messenger verified badge
 
-- [ ] **TASK-118** Build OnboardingScreen
+- [x] **TASK-118** Build OnboardingScreen
   - 3 pages: Welcome / How It Works / Community Guidelines
   - Shown only once on first install (SharedPreferences flag)
   - Skip button on all pages
   - After completion → LoginScreen
 
-- [ ] **TASK-119** Build SettingsScreen
+- [x] **TASK-119** Build SettingsScreen
   - Logout button (primary action)
   - App version display
   - Dark/Light theme toggle (optional)
 
-- [ ] **TASK-120** Build ItemCard Composable
+- [x] **TASK-120** Build ItemCard Composable
   - Item emoji/icon placeholder, title, description preview (2 lines), status badge, timestamp, reporter name
   - "Mark as Found" quick-action only if owner + status LOST
 
-- [ ] **TASK-121** Build StatusBadge Composable
+- [x] **TASK-121** Build StatusBadge Composable
   - LOST → red background, red text
   - FOUND → green background, green text
 
-- [ ] **TASK-122** Build FilterChips Composable
+- [x] **TASK-122** Build FilterChips Composable
   - All / Lost / Found
   - Single selection; tapping active chip deselects (shows All)
   - Calls HomeViewModel.onFilterChanged()
 
-- [ ] **TASK-123** Set Up NavGraph
+- [x] **TASK-123** Set Up NavGraph
   - Single Activity, Compose Navigation
   - Routes: onboarding / login / register / home / additem / detail/{itemId} / profile / settings
   - Auth guard at root (TASK-110)
 
-- [ ] **TASK-124** Implement Material Design 3 Theme
+- [x] **TASK-124** Implement Material Design 3 Theme
   - Primary color: deep purple (#6c63ff)
   - Lost status color: #ff4d6d
   - Found status color: #2dd4a0

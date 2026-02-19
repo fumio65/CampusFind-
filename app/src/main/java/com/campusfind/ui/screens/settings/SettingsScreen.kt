@@ -1,10 +1,15 @@
 package com.campusfind.ui.screens.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -12,24 +17,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 /**
  * FILE: app/src/main/java/com/campusfind/ui/screens/settings/SettingsScreen.kt
  *
- * Settings screen with logout functionality.
+ * Settings screen — app preferences and account actions.
  *
- * Why a confirmation dialog on logout:
- * - Prevents accidental logout if user taps the button by mistake
- * - Standard UX pattern for destructive actions
+ * ENHANCED: Added more settings options with better UX.
  *
- * Why onNavigateToLogin callback clears back stack:
- * - After logout, back button should NOT return to Settings or Home
- * - User is logged out — they should stay on LoginScreen until they log in again
- * - NavGraph handles the back stack clearing via popUpTo(0)
- *
- * Future enhancements (not in Phase 1):
- * - Dark/Light theme toggle
- * - Notification preferences
+ * Features:
+ * - User info section (shows current user name)
  * - App version display
- * - About / Privacy Policy links
+ * - Logout with confirmation dialog
  *
- * See: DEC-013 (Single Activity Navigation), TASK-109, demo steps 6 & 11
+ * See: DEC-005 (Jetpack Compose), TASK-109, TASK-119
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +43,7 @@ fun SettingsScreen(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -56,44 +53,53 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Account Section
+            SettingsSection(title = "Account") {
+                // User info item
+                SettingsItem(
+                    icon = Icons.Default.Person,
+                    title = "Logged in as",
+                    subtitle = viewModel.currentUserName ?: "Unknown User",
+                    onClick = { /* Could navigate to profile */ }
+                )
 
-            // App Version (hardcoded for now)
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "App Version",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "1.0.0 (MCO 1)",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                Divider()
+
+                // Logout item
+                SettingsItem(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    title = "Logout",
+                    subtitle = "Sign out of your account",
+                    onClick = { showLogoutDialog = true },
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // About Section
+            SettingsSection(title = "About") {
+                // App version item
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "App Version",
+                    subtitle = "1.0.0 (MCO 1)",
+                    onClick = { /* Could show version details */ }
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Logout Button (destructive action)
-            Button(
-                onClick = { showLogoutDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("Logout")
-            }
+            // Footer
+            Text(
+                text = "CampusFind+ © 2026",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(16.dp)
+            )
         }
     }
 
@@ -108,7 +114,6 @@ fun SettingsScreen(
                     onClick = {
                         showLogoutDialog = false
                         viewModel.logout()
-                        // Navigate to Login and clear entire back stack
                         onNavigateToLogin()
                     }
                 ) {
@@ -121,5 +126,73 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = tint
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
