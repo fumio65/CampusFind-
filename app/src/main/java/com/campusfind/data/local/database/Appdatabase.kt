@@ -4,53 +4,38 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * FILE: app/src/main/java/com/campusfind/data/local/database/AppDatabase.kt
  *
- * Room database for CampusFind+ — Single Source of Truth (SSOT) for all data.
+ * Room database for CampusFind+ — UPDATED to version 2.
  *
- * Why this design:
- * - Version 1 — matches Phase 1 schema with 2 tables: users + lost_items
- * - exportSchema = false — we are not versioning schema files for this academic project
- * - fallbackToDestructiveMigration() — during development, schema changes drop and recreate
- *   tables instead of requiring manual migrations (acceptable for Phase 1 since data is local)
- * - Singleton pattern — exactly one database instance per app process, shared by all DAOs
- *   (prevents data corruption from multiple DB connections)
+ * Version 2 changes (schema migration):
+ * - Added `location` column (TEXT, nullable)
+ * - Added `photo_uri` column (TEXT, nullable)
  *
- * Phase 2 migration:
- * - Bump version to 2
- * - Remove fallbackToDestructiveMigration()
- * - Add Migration(1, 2) to add sync_status and last_synced_at columns (TASK-206)
- *
- * Why provided by DatabaseModule instead of constructed directly:
- * - Room.databaseBuilder() requires a Context — Hilt provides this via @ApplicationContext
- * - Singleton scope managed by Hilt — one instance for the entire app lifetime (DEC-022)
- * - DAOs extracted from this database are also provided as singletons by DatabaseModule
+ * Migration strategy:
+ * - During development: fallbackToDestructiveMigration() drops and recreates
+ * - For production: would use addMigration(MIGRATION_1_2)
  *
  * See: DEC-003 (offline-first / SSOT), DEC-006 (Room), DEC-022 (Hilt),
- *      TASK-100a (DatabaseModule), TASK-104
+ *      TASK-100a (DatabaseModule), TASK-104, TASK-113 (enhanced)
  */
 @Database(
     entities = [
         UserEntity::class,
         LostItemEntity::class
     ],
-    version = 1,
+    version = 2,                    // Bumped from 1 to 2
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
-    // ── DAO Accessors ────────────────────────────────────────────────────────
-    // These are called by DatabaseModule to provide DAOs as singletons
-
     abstract fun userDao(): UserDao
 
     abstract fun lostItemDao(): LostItemDao
-
-    // ── Singleton Pattern (BACKUP — Hilt is primary provider) ───────────────
-    // Hilt provides the database via DatabaseModule.provideDatabase()
-    // This companion object is kept as a fallback for non-Hilt contexts (tests)
 
     companion object {
         @Volatile
@@ -67,7 +52,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "campusfind_db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration()  // Dev only — drops DB on schema change
+                    // .addMigration(MIGRATION_1_2)    // Production approach (commented for now)
                     .build()
                 INSTANCE = instance
                 instance
@@ -80,5 +66,21 @@ abstract class AppDatabase : RoomDatabase() {
         fun clearInstance() {
             INSTANCE = null
         }
+
+        /**
+         * Migration from version 1 to version 2.
+         * Adds location and photo_uri columns.
+         *
+         * Commented out because we're using fallbackToDestructiveMigration() for development.
+         * Uncomment this and remove fallbackToDestructiveMigration() for production.
+         */
+        /*
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE lost_items ADD COLUMN location TEXT")
+                database.execSQL("ALTER TABLE lost_items ADD COLUMN photo_uri TEXT")
+            }
+        }
+        */
     }
 }

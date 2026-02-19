@@ -74,6 +74,8 @@ dependencies {
     // Navigation — Compose (DEC-013)
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     // ViewModel + Lifecycle (DEC-001)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")

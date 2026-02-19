@@ -163,7 +163,7 @@ All of this must work with **Airplane Mode ON**.
 
 ### 🔴 Critical — Item CRUD (Demo Steps 4–5, 9–10, 13–14)
 
-- [ ] **TASK-111** Implement LostItemRepository + LostItemRepositoryImpl
+- [x] **TASK-111** Implement LostItemRepository + LostItemRepositoryImpl
   - **Interface** in `domain/repository/LostItemRepository.kt` — pure Kotlin, zero Android imports
   - **Impl** in `data/repository/LostItemRepositoryImpl.kt` — `@Inject constructor(dao: LostItemDao, sessionManager: SessionManager)`
   - Methods: `getAllItems()`, `getItemsByStatus()`, `getItemById()`, `addItem()`, `updateStatus()`, `deleteItem()`
@@ -171,7 +171,7 @@ All of this must work with **Airplane Mode ON**.
   - **Bound by `RepositoryModule`** — ViewModel never imports the Impl class directly
   - **Acceptance:** All operations reflected immediately in UI via Flow; DIP satisfied (ViewModel imports only interface)
 
-- [ ] **TASK-112** Build HomeScreen + HomeViewModel (Demo steps 5, 9)
+- [x] **TASK-112** Build HomeScreen + HomeViewModel (Demo steps 5, 9)
   - LazyColumn of ItemCards, all users' items visible to all logged-in users
   - Filter chips: All / Lost / Found — reactive via Flow
   - FAB (➕) navigates to AddItemScreen
