@@ -5,26 +5,15 @@ package com.campusfind.ui.navigation
  *
  * Sealed class defining all navigation routes in the app.
  *
- * Why sealed class:
- * - Type-safe navigation — compiler ensures all routes are handled
- * - Each route is a unique object or class with parameters
- * - No magic strings scattered across the codebase
+ * UPDATED: Added Onboarding and Profile routes.
  *
- * Why createRoute() methods:
- * - Detail route needs itemId parameter: "detail/{itemId}" → "detail/abc123"
- * - createRoute(itemId) builds the actual navigation string
- *
- * Phase 1 routes (MCO 1):
- * - Login, Register, Home, AddItem, Detail, Settings
- *
- * Phase 2 additions (MCO 2):
- * - Onboarding, Profile, Notifications
- *
- * See: DEC-013 (Single Activity Navigation), TASK-110, TASK-123 (full NavGraph)
+ * See: DEC-013 (Single Activity Navigation), TASK-110, TASK-118
  */
 sealed class Screen(val route: String) {
 
-    // ── Auth ─────────────────────────────────────────────────────────────────
+    // ── Onboarding / Auth ────────────────────────────────────────────────────
+
+    object Onboarding : Screen("onboarding")
 
     object Login : Screen("login")
 
@@ -40,11 +29,7 @@ sealed class Screen(val route: String) {
         fun createRoute(itemId: String) = "detail/$itemId"
     }
 
-    object Settings : Screen("settings")
-
-    // ── Phase 2 (not used in MCO 1) ─────────────────────────────────────────
-
-    object Onboarding : Screen("onboarding")
-
     object Profile : Screen("profile")
+
+    object Settings : Screen("settings")
 }
