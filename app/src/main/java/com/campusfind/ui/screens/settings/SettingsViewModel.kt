@@ -10,23 +10,18 @@ import javax.inject.Inject
  *
  * ViewModel for the settings screen.
  *
- * Why this exists:
- * - SettingsScreen is not just a static UI — it has one action: logout
- * - Logout needs to call SessionManager.clearSession()
- * - SessionManager is provided by Hilt — ViewModel receives it via @Inject
+ * ENHANCED: Exposes current user name for display.
  *
- * Why logout is synchronous (not suspend):
- * - SessionManager.clearSession() calls SharedPreferences.edit().clear().apply()
- * - apply() is async internally — main thread safe
- * - No need for viewModelScope.launch
+ * Why @HiltViewModel:
+ * - Hilt injects SessionManager automatically
+ * - SettingsScreen calls hiltViewModel() to get this instance
  *
- * Why no UI state:
- * - Settings has no loading states or error states
- * - It's just static preferences + one logout action
- * - If we add more features later (theme toggle, notification settings), we'd add state
+ * Why logout() is synchronous:
+ * - SessionManager.clearSession() calls SharedPreferences.edit().apply()
+ * - apply() is async internally, so the function returns immediately
+ * - Navigation happens immediately after (nav to Login)
  *
- * See: DEC-001 (MVVM), DEC-017 (session storage), DEC-022 (Hilt DI),
- *      TASK-105 (SessionManager), TASK-109, demo steps 6 & 11
+ * See: DEC-001 (MVVM), DEC-022 (Hilt DI), TASK-109, TASK-119
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -34,14 +29,15 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * Log the user out.
-     *
-     * Clears the session from SharedPreferences.
-     * After this, SessionManager.isLoggedIn returns false,
-     * and the NavGraph auth guard will redirect to LoginScreen
-     * on next recomposition or app restart.
-     *
-     * Called by: SettingsScreen logout button onClick
+     * Current user's display name from session.
+     * Used to show "Logged in as [name]" in the UI.
+     */
+    val currentUserName: String?
+        get() = sessionManager.currentUserName
+
+    /**
+     * Clear the user session (logout).
+     * Removes current_user_id and current_user_name from SharedPreferences.
      */
     fun logout() {
         sessionManager.clearSession()
