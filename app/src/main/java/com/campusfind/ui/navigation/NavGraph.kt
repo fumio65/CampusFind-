@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.ui.screens.additem.AddItemScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
 import com.campusfind.ui.screens.register.RegisterScreen
@@ -16,19 +17,19 @@ import com.campusfind.ui.screens.settings.SettingsScreen
 /**
  * FILE: app/src/main/java/com/campusfind/ui/navigation/NavGraph.kt
  *
- * Navigation graph with auth guard — UPDATED with HomeScreen.
+ * Navigation graph with auth guard — UPDATED with AddItemScreen.
  *
  * Routes wired so far:
  * - Login ✅
  * - Register ✅
- * - Home ✅ (TASK-112)
+ * - Home ✅
+ * - AddItem ✅ (TASK-113)
  * - Settings ✅
  *
  * Routes NOT YET WIRED:
- * - AddItem (TASK-113)
  * - Detail (TASK-114)
  *
- * See: DEC-013 (Single Activity), TASK-110, TASK-112, TASK-123 (complete NavGraph)
+ * See: DEC-013 (Single Activity), TASK-110, TASK-112, TASK-113, TASK-123 (complete NavGraph)
  */
 @Composable
 fun CampusFindNavGraph(
@@ -95,8 +96,13 @@ fun CampusFindNavGraph(
             )
         }
 
-        // TODO TASK-113: Add AddItem composable
-        // composable(Screen.AddItem.route) { AddItemScreen(...) }
+        composable(Screen.AddItem.route) {
+            AddItemScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
 
         // TODO TASK-114: Add Detail composable
         // composable(
