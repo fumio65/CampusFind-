@@ -3,6 +3,7 @@ package com.campusfind.ui.screens.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.UserRepository
 import com.campusfind.domain.usecase.DeleteItemUseCase
@@ -20,22 +21,14 @@ import javax.inject.Inject
  *
  * ViewModel for the detail screen.
  *
- * Why @HiltViewModel:
- * - Hilt injects repositories, use cases, and SessionManager automatically
- * - DetailScreen calls hiltViewModel() to get this instance
+ * UPDATED: Changed onMarkAsFound() to onToggleStatus() to support bidirectional toggle.
  *
- * Why ownership is computed here (DEC-021):
- * - item.reportedBy == sessionManager.currentUserId
- * - Business logic lives in ViewModel, not in Composable
- * - UI receives isOwner boolean and renders accordingly
- * - Even if UI tries to call onMarkAsFound(), UseCase double-checks ownership
+ * Toggle behavior:
+ * - If status = LOST → update to FOUND
+ * - If status = FOUND → update back to LOST
+ * - No confirmation needed (user can freely toggle)
  *
- * Why UserRepository is injected:
- * - To load reporter's full name via getUserById()
- * - Displayed as "Reported by: [name]"
- *
- * See: DEC-001 (MVVM), DEC-021 (ownership in ViewModel), DEC-022 (Hilt DI),
- *      TASK-114, demo steps 10, 13, 14
+ * See: DEC-001 (MVVM), DEC-021 (ownership enforcement), TASK-114
  */
 @HiltViewModel
 class DetailViewModel @Inject constructor(
@@ -98,16 +91,27 @@ class DetailViewModel @Inject constructor(
     }
 
     /**
-     * Mark item as found.
+     * Toggle item status between LOST and FOUND.
      *
-     * Called by: "Mark as Found" button (only visible to owner)
-     * Demo step: 14 — User A marks their item as Found
+     * NEW: Replaces onMarkAsFound() with bidirectional toggle.
+     *
+     * Called by: Toggle button in DetailScreen
+     * Demo behavior:
+     * - User marks item as Found → can undo by marking as Lost again
+     * - No confirmation needed, user has full control
      */
-    fun onMarkAsFound() {
+    fun onToggleStatus() {
         val item = _uiState.value.item ?: return
 
+        // Determine new status (opposite of current)
+        val newStatus = when (item.status) {
+            ItemStatus.LOST -> ItemStatus.FOUND
+            ItemStatus.FOUND -> ItemStatus.LOST
+        }
+
         viewModelScope.launch {
-            val result = updateItemStatusUseCase(item)
+            // UpdateItemStatusUseCase now accepts a target status parameter
+            val result = updateItemStatusUseCase(item, newStatus)
             result.fold(
                 onSuccess = {
                     // Reload item to refresh status

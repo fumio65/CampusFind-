@@ -26,15 +26,13 @@ import java.util.*
  *
  * Detail screen — full item view with ownership-aware controls.
  *
- * Ownership logic (DEC-021):
- * - isOwner flag comes from ViewModel (computed from item.reportedBy == currentUserId)
- * - If isOwner + status == LOST → show "Mark as Found" button
- * - If isOwner → show ⋮ overflow menu with Delete
- * - If NOT owner → read-only view, no action buttons
+ * UPDATED: Added toggle button — owner can switch between LOST and FOUND.
  *
- * Demo steps:
- * - Step 10: User B sees User A's item (read-only, no buttons)
- * - Step 13-14: User A sees their own item → "Mark as Found" button visible → taps it → status updates
+ * Toggle button behavior:
+ * - If status = LOST → button shows "Mark as Found"
+ * - If status = FOUND → button shows "Mark as Lost"
+ * - Owner can toggle back and forth without confirmation
+ * - Prevents accidental permanent changes
  *
  * See: DEC-005 (Jetpack Compose), DEC-021 (ownership enforcement),
  *      TASK-114, demo steps 10, 13, 14
@@ -216,13 +214,27 @@ fun DetailScreen(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Mark as Found button (only for owner + status LOST)
-                    if (uiState.isOwner && item.status == ItemStatus.LOST) {
+                    // Toggle button (only for owner)
+                    // NEW: Can toggle between LOST and FOUND
+                    if (uiState.isOwner) {
                         Button(
-                            onClick = { viewModel.onMarkAsFound() },
-                            modifier = Modifier.fillMaxWidth()
+                            onClick = { viewModel.onToggleStatus() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (item.status == ItemStatus.LOST) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.secondary
+                                }
+                            )
                         ) {
-                            Text("Mark as Found")
+                            Text(
+                                text = if (item.status == ItemStatus.LOST) {
+                                    "Mark as Found"
+                                } else {
+                                    "Mark as Lost"
+                                }
+                            )
                         }
                     }
                 }
