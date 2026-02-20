@@ -9,19 +9,13 @@ import javax.inject.Inject
 /**
  * FILE: app/src/main/java/com/campusfind/domain/usecase/UpdateItemStatusUseCase.kt
  *
- * Use Case for updating an item's status (LOST → FOUND).
+ * Use Case for updating an item's status.
  * Single Responsibility: enforce ownership and call repository.
  *
- * Why ownership check is here (not in ViewModel):
- * - Business rule enforcement belongs in the domain layer
- * - ViewModel could be bypassed by future code changes
- * - Use case is the single source of truth for this rule
+ * UPDATED: Now accepts target status as parameter (LOST or FOUND).
+ * Supports bidirectional toggle between LOST ↔ FOUND.
  *
- * Why it receives the full LostItem (not just ID):
- * - Needs item.reportedBy to check ownership
- * - Avoids an extra database query
- *
- * See: DEC-001 (MVVM), DEC-021 (ownership enforcement), TASK-114, demo step 14
+ * See: DEC-001 (MVVM), DEC-021 (ownership enforcement), TASK-114
  */
 class UpdateItemStatusUseCase @Inject constructor(
     private val repository: LostItemRepository,
@@ -29,17 +23,18 @@ class UpdateItemStatusUseCase @Inject constructor(
 ) {
 
     /**
-     * Update an item's status to FOUND.
+     * Update an item's status to the specified target status.
      *
      * @param item The item to update (includes reportedBy for ownership check)
+     * @param targetStatus The new status (LOST or FOUND)
      *
      * @return Result.success(Unit) if status updated successfully
      *         Result.failure(exception) if not authorized or update fails
      *
-     * Used by: DetailViewModel.onMarkAsFound()
-     * Demo step: 14 — User A marks their item as Found
+     * Used by: DetailViewModel.onToggleStatus()
+     * Demo behavior: Owner can toggle freely between LOST and FOUND
      */
-    suspend operator fun invoke(item: LostItem): Result<Unit> {
+    suspend operator fun invoke(item: LostItem, targetStatus: ItemStatus): Result<Unit> {
         // Ownership check
         val currentUserId = sessionManager.currentUserId
             ?: return Result.failure(Exception("You must be logged in"))
@@ -50,7 +45,7 @@ class UpdateItemStatusUseCase @Inject constructor(
 
         // Delegate to repository
         return try {
-            repository.updateStatus(item.id, ItemStatus.FOUND)
+            repository.updateStatus(item.id, targetStatus)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
