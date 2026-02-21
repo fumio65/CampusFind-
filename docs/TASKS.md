@@ -255,27 +255,27 @@ All of this must work with **Airplane Mode ON**.
 
 ### 🟢 Medium — Quality & Polish
 
-- [ ] **TASK-125** Unit Tests — ViewModels
+- [x] **TASK-125** Unit Tests — ViewModels
   - HomeViewModel filter logic
   - DetailViewModel isOwner logic
   - AddItemViewModel validation
 
-- [ ] **TASK-126** Unit Tests — Repository
+- [x] **TASK-126** Unit Tests — Repository
   - Insert + query + update + delete operations on in-memory Room DB
 
 - [ ] **TASK-127** UI Tests — Key Demo Flow
   - Instrumented test that runs the 15-step demo scenario end to end
   - Verifies User B cannot see Mark as Found on User A's item
 
-- [ ] **TASK-129** SOLID & Hilt Verification Checklist
-  - [ ] **S** — Every class has exactly one responsibility (no ViewModel touching DAO directly)
-  - [ ] **O** — `LostItemRepository` interface unchanged between Phase 1 and Phase 2 builds
-  - [ ] **L** — `LocalLostItemRepository` is a valid substitute for `LostItemRepository` in all contexts
-  - [ ] **I** — `SyncableRepository` is a separate interface from `LostItemRepository`
-  - [ ] **D** — No class in `ui/` or `domain/` imports anything from `data/` except through interfaces
-  - [ ] **Hilt** — All 4 modules present and clean: `DatabaseModule`, `RepositoryModule`, `AppModule`, `NetworkModule` stub
-  - [ ] **Hilt** — `@HiltAndroidApp` on Application, `@AndroidEntryPoint` on MainActivity, `@HiltViewModel` on all ViewModels
-  - [ ] **Repository** — `RepositoryModule` uses `@Binds` (not `@Provides`) for interface bindings
+- [x] **TASK-129** SOLID & Hilt Verification Checklist
+  - [x] **S** — Every class has exactly one responsibility (no ViewModel touching DAO directly)
+  - [x] **O** — `LostItemRepository` interface unchanged between Phase 1 and Phase 2 builds
+  - [x] **L** — `LocalLostItemRepository` is a valid substitute for `LostItemRepository` in all contexts
+  - [x] **I** — `SyncableRepository` is a separate interface from `LostItemRepository`
+  - [x] **D** — No class in `ui/` or `domain/` imports anything from `data/` except through interfaces
+  - [x] **Hilt** — All 4 modules present and clean: `DatabaseModule`, `RepositoryModule`, `AppModule`, `NetworkModule` stub
+  - [x] **Hilt** — `@HiltAndroidApp` on Application, `@AndroidEntryPoint` on MainActivity, `@HiltViewModel` on all ViewModels
+  - [x] **Repository** — `RepositoryModule` uses `@Binds` (not `@Provides`) for interface bindings
   - **Acceptance:** Instructor can trace the DI graph: Hilt Module → Impl → Interface → UseCase → ViewModel
 
 - [ ] **TASK-128** MCO 1 Demo Rehearsal

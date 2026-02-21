@@ -133,3 +133,28 @@ val Typography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+// ═══ NEW MODERN UI TEXT STYLES (add below) ═══
+val SectionLabelText = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Medium,
+    fontSize = 10.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 0.08.sp
+)
+
+val TinyBadgeText = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.ExtraBold,
+    fontSize = 9.sp,
+    lineHeight = 12.sp,
+    letterSpacing = 0.04.sp
+)
+
+val MonoText = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Medium,
+    fontSize = 10.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 0.sp
+)

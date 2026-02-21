@@ -93,7 +93,7 @@ val md_theme_dark_onSurface = Color(0xFFE6E1E6)
 val md_theme_dark_surfaceVariant = Color(0xFF48464F)
 val md_theme_dark_onSurfaceVariant = Color(0xFFCAC4D3)
 
-val md_theme_dark_outline = Color(0xFF938F99)
+val md_theme_dark_outline = Color(0xFF9A38F99)
 val md_theme_dark_outlineVariant = Color(0xFF48464F)
 
 val md_theme_dark_inverseSurface = Color(0xFFE6E1E6)
