@@ -16,21 +16,49 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Brand Colors
-val Purple = Color(0xFF6C63FF)
-val PurpleLight = Color(0xFFEDE7FF)
-val PurpleDark = Color(0xFF3D35CC)
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTE: Brand colors moved to Color.kt
+// Modern UI colors defined below (not in Color.kt)
+// ═══════════════════════════════════════════════════════════════════════════
 
-val StatusLostBg = Color(0xFFFFEBEE)
-val StatusLostText = Color(0xFFC62828)
-val StatusFoundBg = Color(0xFFE8F5E9)
-val StatusFoundText = Color(0xFF2E7D32)
+// ═══ MODERN UI COLORS ═══
+val ModernBg = Color(0xFF0f0f11)
+val ModernSurface = Color(0xFF1a1a1f)
+val ModernSurface2 = Color(0xFF242429)
+val ModernBorder = Color(0xFF2e2e36)
+
+val ModernText = Color(0xFFe8e8f0)
+val ModernTextMuted = Color(0xFF6b6b7e)
+val ModernTextDim = Color(0xFF3e3e4e)
+
+val ModernAccent = Color(0xFF6c63ff)
+val ModernAccentDim = Color(0xFF2d2a55)
+val ModernAccentBright = Color(0xFF8b84ff)
+
+val ModernLost = Color(0xFFff4d6d)
+val ModernLostDim = Color(0xFF3d1a22)
+val ModernLostBg = Color(0xFFfff0f3)
+
+val ModernFound = Color(0xFF2dd4a0)
+val ModernFoundDim = Color(0xFF0d3328)
+val ModernFoundBg = Color(0xFFf0fdf9)
+val ModernFoundText = Color(0xFF1a6b50)
+
+val ModernError = Color(0xFFff4d6d)
+val ModernWarning = Color(0xFFfebc2e)
+val ModernSuccess = Color(0xFF2dd4a0)
+
+val LightCardBg = Color(0xFFffffff)
+val LightBodyBg = Color(0xFFf5f5f0)
+val LightTextPrimary = Color(0xFF1a1a2e)
+val LightTextSecondary = Color(0xFF888888)
+val LightBorder = Color(0xFFe8e8e4)
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple,
+    primary = CampusFindPurple,  // ← Use from Color.kt
     onPrimary = Color.White,
-    primaryContainer = PurpleLight,
-    onPrimaryContainer = PurpleDark,
+    primaryContainer = Color(0xFFEDE7FF),
+    onPrimaryContainer = Color(0xFF3D35CC),
     background = Color(0xFFFFFBFE),
     onBackground = Color(0xFF1C1B1F),
     surface = Color(0xFFFFFBFE),
@@ -42,8 +70,8 @@ private val LightColorScheme = lightColorScheme(
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFBB86FC),
     onPrimary = Color(0xFF21005E),
-    primaryContainer = PurpleDark,
-    onPrimaryContainer = PurpleLight,
+    primaryContainer = Color(0xFF3D35CC),
+    onPrimaryContainer = Color(0xFFEDE7FF),
     background = Color(0xFF121212),
     onBackground = Color(0xFFE6E1E5),
     surface = Color(0xFF121212),
