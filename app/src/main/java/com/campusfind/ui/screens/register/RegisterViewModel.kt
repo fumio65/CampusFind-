@@ -114,7 +114,7 @@ class RegisterViewModel @Inject constructor(
             result.fold(
                 onSuccess = { user ->
                     // Save session
-                    sessionManager.saveSession(user.id, user.fullName)
+                    sessionManager.saveSession(user.id, user.fullName, userEmail = user.email)
                     _uiState.update { it.copy(isSubmitting = false) }
                     // Navigate to Home (callback clears back stack)
                     onSuccess()

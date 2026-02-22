@@ -27,14 +27,12 @@ import javax.inject.Singleton
 class SessionManager @Inject constructor(
     private val prefs: SharedPreferences
 ) {
-
     companion object {
         private const val PREF_CURRENT_USER_ID = "current_user_id"
         private const val PREF_CURRENT_USER_NAME = "current_user_name"
+        private const val PREF_CURRENT_USER_EMAIL = "current_user_email"  // ADD THIS
         private const val PREF_ONBOARDING_COMPLETED = "onboarding_completed"
     }
-
-    // ── SESSION ──────────────────────────────────────────────────────────────
 
     val currentUserId: String?
         get() = prefs.getString(PREF_CURRENT_USER_ID, null)
@@ -42,13 +40,21 @@ class SessionManager @Inject constructor(
     val currentUserName: String?
         get() = prefs.getString(PREF_CURRENT_USER_NAME, null)
 
+    // ADD THIS:
+    val currentUserEmail: String?
+        get() = prefs.getString(PREF_CURRENT_USER_EMAIL, null)
+
     val isLoggedIn: Boolean
         get() = currentUserId != null
 
-    fun saveSession(userId: String, userName: String) {
+    val hasCompletedOnboarding: Boolean
+        get() = prefs.getBoolean(PREF_ONBOARDING_COMPLETED, false)
+
+    fun saveSession(userId: String, userName: String, userEmail: String) {  // ADD userEmail parameter
         prefs.edit()
             .putString(PREF_CURRENT_USER_ID, userId)
             .putString(PREF_CURRENT_USER_NAME, userName)
+            .putString(PREF_CURRENT_USER_EMAIL, userEmail)  // ADD THIS
             .apply()
     }
 
@@ -56,13 +62,9 @@ class SessionManager @Inject constructor(
         prefs.edit()
             .remove(PREF_CURRENT_USER_ID)
             .remove(PREF_CURRENT_USER_NAME)
+            .remove(PREF_CURRENT_USER_EMAIL)  // ADD THIS
             .apply()
     }
-
-    // ── ONBOARDING ───────────────────────────────────────────────────────────
-
-    val hasCompletedOnboarding: Boolean
-        get() = prefs.getBoolean(PREF_ONBOARDING_COMPLETED, false)
 
     fun markOnboardingCompleted() {
         prefs.edit()
