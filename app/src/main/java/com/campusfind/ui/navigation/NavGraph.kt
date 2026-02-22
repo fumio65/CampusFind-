@@ -21,14 +21,9 @@ import com.campusfind.ui.screens.settings.SettingsScreen
  *
  * Navigation graph with onboarding + auth guard.
  *
- * UPDATED: Added onboarding flow.
+ * UPDATED: Fixed LoginScreen callback parameter (onNavigateToHome → onLoginSuccess)
  *
- * Startup logic:
- * 1. If onboarding not completed → Onboarding screen
- * 2. Else if logged in → Home
- * 3. Else → Login
- *
- * See: DEC-013 (Single Activity), TASK-110, TASK-118
+ * See: DEC-013 (Single Activity), TASK-110, TASK-118, Phase 2 UI redesign
  */
 @Composable
 fun CampusFindNavGraph(
@@ -72,7 +67,7 @@ fun CampusFindNavGraph(
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
                 },
-                onNavigateToHome = {
+                onLoginSuccess = {  // ← FIXED: was onNavigateToHome
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
