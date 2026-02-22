@@ -17,13 +17,9 @@ import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
 
 /**
- * FILE: app/src/main/java/com/campusfind/ui/navigation/NavGraph.kt
+ * Navigation graph with modern HomeScreen support
  *
- * Navigation graph with onboarding + auth guard.
- *
- * UPDATED: Fixed LoginScreen callback parameter (onNavigateToHome → onLoginSuccess)
- *
- * See: DEC-013 (Single Activity), TASK-110, TASK-118, Phase 2 UI redesign
+ * UPDATED: Added onNavigateToProfile parameter for new HomeScreen design
  */
 @Composable
 fun CampusFindNavGraph(
@@ -67,7 +63,7 @@ fun CampusFindNavGraph(
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
                 },
-                onLoginSuccess = {  // ← FIXED: was onNavigateToHome
+                onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
@@ -102,7 +98,26 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                onNavigateToProfile = {
+                    // TODO: Navigate to Profile screen when implemented (Phase 4)
+                    // For now, navigate to Settings as placeholder
+                    navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToSmartHistory = {
+                    // TODO: Navigate to Smart History screen when implemented (Phase 4)
+                    // For now, navigate to Settings as placeholder
+                    navController.navigate(Screen.Settings.route)
+                },
+                onLogout = {
+                    sessionManager.clearSession()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                currentUserName = sessionManager.currentUserName ?: "User",
+                currentUserEmail = sessionManager.currentUserEmail ?: "user@university.edu"
             )
         }
 
@@ -136,7 +151,7 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(Screen.Home.route) { inclusive = true }
                         launchSingleTop = true
                     }
                 }
