@@ -86,4 +86,18 @@ interface LostItemDao {
     // Used by LostItemRepositoryImpl.deleteItem()
     // Called when reporter confirms delete from overflow menu (TASK-116)
     // Only the item id is needed — avoids fetching the full entity just to delete it
+
+    @Query("""
+        UPDATE lost_items 
+        SET title = :title, 
+            description = :description,
+            last_modified_at = :timestamp
+        WHERE id = :id
+    """)
+    suspend fun updateItemDetails(
+        id: String,
+        title: String,
+        description: String,
+        timestamp: Long
+    )
 }

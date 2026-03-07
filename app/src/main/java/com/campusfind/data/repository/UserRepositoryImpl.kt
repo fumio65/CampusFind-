@@ -53,8 +53,8 @@ class UserRepositoryImpl @Inject constructor(
         } catch (e: android.database.sqlite.SQLiteConstraintException) {
             // Unique index on email was violated — email already exists
             Result.failure(Exception("Email already in use"))
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (_: Exception) {
+            Result.failure(Exception("Registration failed"))
         }
     }
 
@@ -75,8 +75,8 @@ class UserRepositoryImpl @Inject constructor(
 
             Result.success(entity.toDomainModel())
 
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (_: Exception) {
+            Result.failure(Exception("Login failed"))
         }
     }
 

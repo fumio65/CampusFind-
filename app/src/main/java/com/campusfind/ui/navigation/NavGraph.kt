@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.ui.screens.additem.AddItemScreen
 import com.campusfind.ui.screens.detail.DetailScreen
+import com.campusfind.ui.screens.edititem.EditItemScreen  // ← ADDED
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
@@ -19,7 +20,7 @@ import com.campusfind.ui.screens.settings.SettingsScreen
 /**
  * Navigation graph with modern HomeScreen support
  *
- * UPDATED: Added onNavigateToProfile parameter for new HomeScreen design
+ * UPDATED: Added EditItem route for editing existing reports
  */
 @Composable
 fun CampusFindNavGraph(
@@ -137,6 +138,26 @@ fun CampusFindNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             DetailScreen(
+                itemId = itemId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToEdit = { itemId ->
+                    navController.navigate(Screen.EditItem.createRoute(itemId))
+                }
+            )
+        }
+
+        // ── EditItem Route ───────────────────────────────────────────────────
+        // ← ADDED THIS SECTION
+        composable(
+            route = Screen.EditItem.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+            EditItemScreen(
                 itemId = itemId,
                 onNavigateBack = {
                     navController.popBackStack()

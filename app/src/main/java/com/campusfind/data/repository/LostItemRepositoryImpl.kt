@@ -16,7 +16,7 @@ import javax.inject.Singleton
  *
  * Implementation of LostItemRepository using Room for local storage.
  *
- * UPDATED: addItem() now saves location and photoUri to Room.
+ * UPDATED: Added updateItemDetails() for editing items
  *
  * See: DEC-002 (Repository), DEC-009 (UUID), DEC-010 (enum storage),
  *      DEC-011 (timestamps), DEC-022 (Hilt DI), TASK-100c, TASK-111, TASK-113
@@ -54,8 +54,8 @@ class LostItemRepositoryImpl @Inject constructor(
             id              = UUID.randomUUID().toString(),
             title           = title,
             description     = description,
-            location        = location,             // NEW
-            photoUri        = photoUri,             // NEW
+            location        = location,
+            photoUri        = photoUri,
             status          = ItemStatus.LOST.name,
             reportedBy      = reportedBy,
             reportedAt      = timestamp,
@@ -73,13 +73,23 @@ class LostItemRepositoryImpl @Inject constructor(
         lostItemDao.deleteItem(id)
     }
 
+    // ← ADDED THIS METHOD
+    override suspend fun updateItemDetails(
+        id: String,
+        title: String,
+        description: String
+    ) {
+        val timestamp = System.currentTimeMillis()
+        lostItemDao.updateItemDetails(id, title, description, timestamp)
+    }
+
     private fun LostItemEntity.toDomain(): LostItem {
         return LostItem(
             id              = id,
             title           = title,
             description     = description,
-            location        = location,             // NEW
-            photoUri        = photoUri,             // NEW
+            location        = location,
+            photoUri        = photoUri,
             status          = ItemStatus.fromString(status),
             reportedBy      = reportedBy,
             reportedAt      = reportedAt,
