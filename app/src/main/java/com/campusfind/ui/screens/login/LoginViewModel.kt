@@ -17,6 +17,8 @@ import javax.inject.Inject
  *
  * ViewModel for the login screen.
  *
+ * UPDATED: Now saves email to session for Settings/Profile screens.
+ *
  * Why @HiltViewModel:
  * - Hilt manages lifecycle and injects LoginUseCase + SessionManager
  * - LoginScreen calls hiltViewModel() to get this instance automatically
@@ -28,7 +30,7 @@ import javax.inject.Inject
  *
  * Flow after successful login:
  * 1. LoginUseCase returns Result.success(User)
- * 2. SessionManager.saveSession(user.id, user.fullName)
+ * 2. SessionManager.saveSession(user.id, user.fullName, user.email)  ← UPDATED
  * 3. onSuccess() callback navigates to HomeScreen and clears back stack
  * 4. NavGraph auth guard sees isLoggedIn = true on next app launch
  *
@@ -60,7 +62,7 @@ class LoginViewModel @Inject constructor(
      * Handle the login button click.
      *
      * On success:
-     * - Save session (userId, userName) via SessionManager
+     * - Save session (userId, userName, userEmail) via SessionManager  ← UPDATED
      * - Call onSuccess() callback to navigate to HomeScreen
      *
      * On failure:
@@ -83,8 +85,12 @@ class LoginViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = { user ->
-                    // Save session
-                    sessionManager.saveSession(user.id, user.fullName,userEmail = user.email)
+                    // Save session (now includes email)
+                    sessionManager.saveSession(
+                        userId = user.id,
+                        userName = user.fullName,
+                        userEmail = user.email  // ← ADDED
+                    )
                     _uiState.update { it.copy(isSubmitting = false) }
                     // Navigate to Home (callback clears back stack)
                     onSuccess()

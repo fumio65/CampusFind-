@@ -448,7 +448,7 @@ fun RegisterScreen(
 
                     // ── Create Account button ──
                     Button(
-                        onClick = { viewModel.onSubmit(onSuccess = onNavigateToHome) },
+                        onClick = { viewModel.onRegisterClicked(onSuccess = onNavigateToHome) },  // ← FIXED
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp),

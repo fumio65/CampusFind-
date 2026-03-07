@@ -10,17 +10,18 @@ import androidx.navigation.navArgument
 import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.ui.screens.additem.AddItemScreen
 import com.campusfind.ui.screens.detail.DetailScreen
-import com.campusfind.ui.screens.edititem.EditItemScreen  // ← ADDED
+import com.campusfind.ui.screens.edititem.EditItemScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
+import com.campusfind.ui.screens.profile.UserProfileScreen  // ← ADDED
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
 
 /**
  * Navigation graph with modern HomeScreen support
  *
- * UPDATED: Added EditItem route for editing existing reports
+ * UPDATED: Added Profile screen route (Phase 4)
  */
 @Composable
 fun CampusFindNavGraph(
@@ -101,13 +102,10 @@ fun CampusFindNavGraph(
                     navController.navigate(Screen.Settings.route)
                 },
                 onNavigateToProfile = {
-                    // TODO: Navigate to Profile screen when implemented (Phase 4)
-                    // For now, navigate to Settings as placeholder
-                    navController.navigate(Screen.Settings.route)
+                    navController.navigate(Screen.Profile.route)  // ← UPDATED
                 },
                 onNavigateToSmartHistory = {
-                    // TODO: Navigate to Smart History screen when implemented (Phase 4)
-                    // For now, navigate to Settings as placeholder
+                    // TODO: Navigate to Smart History screen when implemented (Phase 2)
                     navController.navigate(Screen.Settings.route)
                 },
                 onLogout = {
@@ -149,7 +147,7 @@ fun CampusFindNavGraph(
         }
 
         // ── EditItem Route ───────────────────────────────────────────────────
-        // ← ADDED THIS SECTION
+
         composable(
             route = Screen.EditItem.route,
             arguments = listOf(
@@ -165,6 +163,8 @@ fun CampusFindNavGraph(
             )
         }
 
+        // ── Settings Route ───────────────────────────────────────────────────
+
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onNavigateBack = {
@@ -172,9 +172,34 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                currentUserName = sessionManager.currentUserName ?: "User",
+                currentUserEmail = sessionManager.currentUserEmail ?: ""
+            )
+        }
+
+        // ── Profile Route ────────────────────────────────────────────────────
+        // ← ADDED THIS SECTION
+
+        composable(Screen.Profile.route) {
+            UserProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToAddItem = {
+                    navController.navigate(Screen.AddItem.route)
+                },
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+                onNavigateToDetail = { itemId ->
+                    navController.navigate(Screen.Detail.createRoute(itemId))
                 }
             )
         }
