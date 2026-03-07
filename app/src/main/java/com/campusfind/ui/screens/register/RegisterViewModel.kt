@@ -17,6 +17,8 @@ import javax.inject.Inject
  *
  * ViewModel for the registration screen.
  *
+ * UPDATED: Now saves email to session for Settings/Profile screens.
+ *
  * Why @HiltViewModel:
  * - Tells Hilt to manage this ViewModel's lifecycle and inject dependencies
  * - RegisterScreen calls hiltViewModel() to get this ViewModel automatically
@@ -71,35 +73,28 @@ class RegisterViewModel @Inject constructor(
         _uiState.update { it.copy(messengerHandle = value, error = null) }
     }
 
-    // ── SUBMIT ───────────────────────────────────────────────────────────────
+    // ── REGISTRATION ─────────────────────────────────────────────────────────
 
     /**
-     * Handle the submit button click.
+     * Handle the register button click.
      *
-     * Validation done here (in addition to RegisterUseCase):
-     * - Password and confirm password must match
+     * Validation + repository call delegated to RegisterUseCase.
      *
      * On success:
-     * - Save session (userId, userName) via SessionManager
+     * - Save session (userId, userName, userEmail) via SessionManager  ← UPDATED
      * - Call onSuccess() callback to navigate to HomeScreen
      *
      * On failure:
      * - Set error message in UI state
-     * - User sees the error at the top of the form
+     * - User sees the error: "Passwords do not match", "Email already exists", etc.
      *
      * @param onSuccess Called when registration succeeds — navigate to HomeScreen
      */
-    fun onSubmit(onSuccess: () -> Unit) {
+    fun onRegisterClicked(onSuccess: () -> Unit) {
+        // Prevent double-submission while in progress
+        if (_uiState.value.isSubmitting) return
+
         val currentState = _uiState.value
-
-        // Client-side validation — password match check
-        if (currentState.password != currentState.confirmPassword) {
-            _uiState.update { it.copy(error = "Passwords do not match") }
-            return
-        }
-
-        // Prevent double-submission
-        if (currentState.isSubmitting) return
 
         _uiState.update { it.copy(isSubmitting = true, error = null) }
 
@@ -113,8 +108,12 @@ class RegisterViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = { user ->
-                    // Save session
-                    sessionManager.saveSession(user.id, user.fullName, userEmail = user.email)
+                    // Save session (now includes email)
+                    sessionManager.saveSession(
+                        userId = user.id,
+                        userName = user.fullName,
+                        userEmail = user.email  // ← ADDED
+                    )
                     _uiState.update { it.copy(isSubmitting = false) }
                     // Navigate to Home (callback clears back stack)
                     onSuccess()
