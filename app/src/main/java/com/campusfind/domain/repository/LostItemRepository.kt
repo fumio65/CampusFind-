@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
  *
  * Repository interface for lost/found item data access.
  *
- * UPDATED: addItem() now accepts location and photoUri parameters.
+ * UPDATED: Added updateItemDetails() for EditItemViewModel
  *
  * See: DEC-002 (Repository Pattern), DEC-003 (offline-first),
  *      DEC-022 (DIP), TASK-100c (RepositoryModule), TASK-111, TASK-113
@@ -44,4 +44,14 @@ interface LostItemRepository {
     suspend fun updateStatus(id: String, status: ItemStatus)
 
     suspend fun deleteItem(id: String)
+
+    /**
+     * Update an existing item's title and description.
+     * Used by: EditItemViewModel
+     */
+    suspend fun updateItemDetails(
+        id: String,
+        title: String,
+        description: String
+    )
 }

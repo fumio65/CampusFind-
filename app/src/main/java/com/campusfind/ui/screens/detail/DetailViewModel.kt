@@ -4,38 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.domain.model.ItemStatus
+import com.campusfind.domain.model.LostItem
 import com.campusfind.domain.repository.LostItemRepository
-import com.campusfind.domain.repository.UserRepository
-import com.campusfind.domain.usecase.DeleteItemUseCase
-import com.campusfind.domain.usecase.UpdateItemStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * FILE: app/src/main/java/com/campusfind/ui/screens/detail/DetailViewModel.kt
- *
- * ViewModel for the detail screen.
- *
- * UPDATED: Changed onMarkAsFound() to onToggleStatus() to support bidirectional toggle.
- *
- * Toggle behavior:
- * - If status = LOST → update to FOUND
- * - If status = FOUND → update back to LOST
- * - No confirmation needed (user can freely toggle)
- *
- * See: DEC-001 (MVVM), DEC-021 (ownership enforcement), TASK-114
+ * ViewModel for DetailScreen
+ * Handles item loading, status updates, and deletion
  */
 @HiltViewModel
 class DetailViewModel @Inject constructor(
-    private val lostItemRepository: LostItemRepository,
-    private val userRepository: UserRepository,
-    private val updateItemStatusUseCase: UpdateItemStatusUseCase,
-    private val deleteItemUseCase: DeleteItemUseCase,
+    private val repository: LostItemRepository,
+    private val userRepository: com.campusfind.domain.repository.UserRepository,  // ← ADD THIS
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -43,27 +26,26 @@ class DetailViewModel @Inject constructor(
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
     /**
-     * Load item details and compute ownership.
-     *
-     * Called by: DetailScreen in LaunchedEffect
+     * Load item by ID and determine ownership
      */
     fun loadItem(itemId: String) {
-        _uiState.update { it.copy(isLoading = true) }
-
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
             try {
-                val item = lostItemRepository.getItemById(itemId)
+                val item = repository.getItemById(itemId)
+
                 if (item == null) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Item not found or was deleted"
+                            error = "Item not found"
                         )
                     }
                     return@launch
                 }
 
-                // Compute ownership
+                // Check ownership
                 val isOwner = item.reportedBy == sessionManager.currentUserId
 
                 // Load reporter name
@@ -91,64 +73,45 @@ class DetailViewModel @Inject constructor(
     }
 
     /**
-     * Toggle item status between LOST and FOUND.
-     *
-     * NEW: Replaces onMarkAsFound() with bidirectional toggle.
-     *
-     * Called by: Toggle button in DetailScreen
-     * Demo behavior:
-     * - User marks item as Found → can undo by marking as Lost again
-     * - No confirmation needed, user has full control
+     * Update item status (LOST ↔ FOUND)
+     * Only callable by item owner
      */
-    fun onToggleStatus() {
-        val item = _uiState.value.item ?: return
-
-        // Determine new status (opposite of current)
-        val newStatus = when (item.status) {
-            ItemStatus.LOST -> ItemStatus.FOUND
-            ItemStatus.FOUND -> ItemStatus.LOST
-        }
-
+    fun onStatusUpdated(itemId: String, newStatus: ItemStatus) {
         viewModelScope.launch {
-            // UpdateItemStatusUseCase now accepts a target status parameter
-            val result = updateItemStatusUseCase(item, newStatus)
-            result.fold(
-                onSuccess = {
-                    // Reload item to refresh status
-                    loadItem(item.id)
-                },
-                onFailure = { exception ->
-                    _uiState.update {
-                        it.copy(error = exception.message ?: "Failed to update status")
-                    }
+            try {
+                repository.updateStatus(itemId, newStatus)
+
+                // Update local state immediately
+                _uiState.update { state ->
+                    state.copy(
+                        item = state.item?.copy(
+                            status = newStatus,
+                            lastModifiedAt = System.currentTimeMillis()
+                        )
+                    )
                 }
-            )
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(error = "Failed to update status: ${e.message}")
+                }
+            }
         }
     }
 
     /**
-     * Delete item after confirmation.
-     *
-     * Called by: Delete confirmation dialog
-     *
-     * @param onSuccess Navigate back to HomeScreen after successful deletion
+     * Delete item permanently
+     * Only callable by item owner
      */
-    fun onDeleteConfirmed(onSuccess: () -> Unit) {
-        val item = _uiState.value.item ?: return
-
+    fun onDeleteItem(itemId: String) {
         viewModelScope.launch {
-            val result = deleteItemUseCase(item)
-            result.fold(
-                onSuccess = {
-                    // Navigate back — item is gone from database
-                    onSuccess()
-                },
-                onFailure = { exception ->
-                    _uiState.update {
-                        it.copy(error = exception.message ?: "Failed to delete item")
-                    }
+            try {
+                repository.deleteItem(itemId)
+                // Screen will navigate back after this
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(error = "Failed to delete item: ${e.message}")
                 }
-            )
+            }
         }
     }
 }

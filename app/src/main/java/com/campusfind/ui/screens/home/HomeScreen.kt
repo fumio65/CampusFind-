@@ -184,6 +184,7 @@ fun HomeScreen(
                             ) { item ->
                                 ModernItemCard(
                                     item = item,
+                                    reporterName = uiState.reporterNames[item.reportedBy] ?: "Loading...",
                                     onClick = { onNavigateToDetail(item.id) }
                                 )
                             }
@@ -607,6 +608,7 @@ fun FilterPill(
 @Composable
 fun ModernItemCard(
     item: LostItem,
+    reporterName: String,
     onClick: () -> Unit
 ) {
     Card(
@@ -818,7 +820,7 @@ fun ModernItemCard(
                         }
 
                         Text(
-                            text = "Reporter",
+                            text = reporterName,
                             fontSize = 10.sp,
                             color = Color(0xFF888888)
                         )

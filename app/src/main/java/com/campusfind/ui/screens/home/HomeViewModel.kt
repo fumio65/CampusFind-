@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.repository.LostItemRepository
+import com.campusfind.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,18 +15,42 @@ import javax.inject.Inject
  *
  * ViewModel for the home screen (item list with filters).
  *
- * Why @OptIn(ExperimentalCoroutinesApi::class):
- * - flatMapLatest is still marked as experimental in Kotlin coroutines
- * - @OptIn tells the compiler we're aware and accept the API
- * - This API is stable in practice and widely used
+ * UPDATED: Now loads reporter names for all items
+ * - Injects UserRepository to fetch user details
+ * - After items load, fetches all unique reporter names
+ * - Stores in reporterNames Map (userId -> fullName)
+ * - ModernItemCard displays actual names instead of "Reporter"
+ *
+ * Why @HiltViewModel:
+ * - Hilt injects LostItemRepository + UserRepository automatically
+ * - HomeScreen calls hiltViewModel() to get this instance
+ *
+ * Why flatMapLatest:
+ * - When selectedFilter changes, cancel the old Flow and start a new one
+ * - If user rapidly taps filter chips, only the latest query runs
+ * - Prevents race conditions and unnecessary database queries
+ *
+ * Flow chain:
+ * 1. User taps filter chip → onFilterChanged() updates _selectedFilter
+ * 2. flatMapLatest cancels old Flow, calls repository with new filter
+ * 3. Repository returns Flow<List<LostItem>> from Room
+ * 4. For each batch of items, load all unique reporter names from UserRepository
+ * 5. collect { } updates _uiState with items + reporterNames
+ * 6. HomeScreen recomposes automatically via collectAsState()
+ *
+ * Why this satisfies demo step 9 (User B sees User A's items):
+ * - getAllItems() calls repository.getAllItems() which calls dao.getAllItems()
+ * - DAO query has no WHERE userId = ... clause
+ * - All items from all users are returned (DEC-020 multi-user shared DB)
+ * - User A's name is fetched and displayed on their item card
  *
  * See: DEC-001 (MVVM), DEC-020 (multi-user), DEC-022 (Hilt DI),
  *      TASK-111 (LostItemRepository), TASK-112, demo steps 5 & 9
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: LostItemRepository
+    private val repository: LostItemRepository,
+    private val userRepository: UserRepository  // ← NEW: for loading reporter names
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -41,10 +65,13 @@ class HomeViewModel @Inject constructor(
     /**
      * Observe items from repository with reactive filtering.
      *
+     * UPDATED: Now also loads reporter names after items are fetched
+     *
      * When selectedFilter changes:
      * - flatMapLatest cancels the old Flow
      * - Calls repository.getAllItems() or repository.getItemsByStatus()
-     * - Collects the new Flow and updates UI state
+     * - Loads all unique reporter names from UserRepository
+     * - Collects the new Flow and updates UI state with items + names
      */
     private fun observeItems() {
         viewModelScope.launch {
@@ -66,15 +93,38 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 .collect { items ->
+                    // Load reporter names for all unique user IDs
+                    val reporterNames = loadReporterNames(items.map { it.reportedBy }.distinct())
+
                     _uiState.update {
                         it.copy(
                             items = items,
+                            reporterNames = reporterNames,  // ← NEW
                             isLoading = false,
                             error = null
                         )
                     }
                 }
         }
+    }
+
+    /**
+     * Load reporter full names for a list of user IDs.
+     *
+     * @param userIds List of unique user IDs (reportedBy values)
+     * @return Map of userId -> fullName (or "Unknown User" if not found)
+     *
+     * Called by: observeItems() after items are loaded
+     */
+    private suspend fun loadReporterNames(userIds: List<String>): Map<String, String> {
+        val names = mutableMapOf<String, String>()
+
+        userIds.forEach { userId ->
+            val user = userRepository.getUserById(userId)
+            names[userId] = user?.fullName ?: "Unknown User"
+        }
+
+        return names
     }
 
     /**
