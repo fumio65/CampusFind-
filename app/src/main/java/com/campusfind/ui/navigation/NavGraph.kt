@@ -14,14 +14,16 @@ import com.campusfind.ui.screens.edititem.EditItemScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
-import com.campusfind.ui.screens.profile.UserProfileScreen  // ← ADDED
+import com.campusfind.ui.screens.profile.UserProfileScreen
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
+import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen  // NEW: Phase 6
+import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen    // NEW: Phase 6
 
 /**
  * Navigation graph with modern HomeScreen support
  *
- * UPDATED: Added Profile screen route (Phase 4)
+ * UPDATED: Added Claims navigation routes (Phase 6)
  */
 @Composable
 fun CampusFindNavGraph(
@@ -102,7 +104,7 @@ fun CampusFindNavGraph(
                     navController.navigate(Screen.Settings.route)
                 },
                 onNavigateToProfile = {
-                    navController.navigate(Screen.Profile.route)  // ← UPDATED
+                    navController.navigate(Screen.Profile.route)
                 },
                 onNavigateToSmartHistory = {
                     // TODO: Navigate to Smart History screen when implemented (Phase 2)
@@ -128,6 +130,8 @@ fun CampusFindNavGraph(
             )
         }
 
+        // ── Detail Route (UPDATED FOR PHASE 6) ──────────────────────────────
+
         composable(
             route = Screen.Detail.route,
             arguments = listOf(
@@ -142,6 +146,13 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToEdit = { itemId ->
                     navController.navigate(Screen.EditItem.createRoute(itemId))
+                },
+                // ↓ NEW: Phase 6 Claims navigation
+                onNavigateToSubmitClaim = { itemId ->
+                    navController.navigate(Screen.SubmitClaim.createRoute(itemId))
+                },
+                onNavigateToReviewClaims = { itemId ->
+                    navController.navigate(Screen.ReviewClaims.createRoute(itemId))
                 }
             )
         }
@@ -182,7 +193,6 @@ fun CampusFindNavGraph(
         }
 
         // ── Profile Route ────────────────────────────────────────────────────
-        // ← ADDED THIS SECTION
 
         composable(Screen.Profile.route) {
             UserProfileScreen(
@@ -200,6 +210,51 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToDetail = { itemId ->
                     navController.navigate(Screen.Detail.createRoute(itemId))
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                }
+            )
+        }
+
+        // ── CLAIMS ROUTES (NEW IN PHASE 6) ──────────────────────────────────
+
+        composable(
+            route = Screen.SubmitClaim.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+
+            // TODO: Get item title from viewModel or pass via savedStateHandle
+            val itemTitle = "Lost Item"  // Placeholder
+
+            SubmitClaimScreen(
+                itemId = itemId,
+                itemTitle = itemTitle,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ReviewClaims.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+
+            // TODO: Get item title from viewModel or pass via savedStateHandle
+            val itemTitle = "Lost Item"  // Placeholder
+
+            ReviewClaimsScreen(
+                itemId = itemId,
+                itemTitle = itemTitle,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

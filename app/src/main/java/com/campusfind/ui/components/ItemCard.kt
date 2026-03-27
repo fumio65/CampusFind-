@@ -1,36 +1,34 @@
 package com.campusfind.ui.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * FILE: app/src/main/java/com/campusfind/ui/components/ItemCard.kt
+ * ItemCard - Card component for displaying lost items in a list
  *
- * Card component for displaying a lost/found item in the list.
- *
- * Why clickable modifier:
- * - Entire card is tappable → navigates to DetailScreen
- * - More accessible than a tiny "View" button
- * - Standard Material Design pattern
- *
- * Why TextOverflow.Ellipsis:
- * - Long titles/descriptions would overflow the card
- * - Ellipsis shows there's more content → user taps to see full detail
- *
- * Why maxLines:
- * - Title: 1 line max → keeps cards uniform height
- * - Description: 2 lines max → preview without overwhelming the list
- *
- * See: TASK-112, TASK-120 (ItemCard component task)
+ * Features:
+ * - Photo thumbnail (if available)
+ * - Title + status badge
+ * - Description preview (2 lines)
+ * - Timestamp
  */
 @Composable
 fun ItemCard(
@@ -38,65 +36,125 @@ fun ItemCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, Color(0xFFF0F0EC))
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Title + Status Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+            // ✅ Photo thumbnail (70x70dp)
+            if (item.photoUri != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(item.photoUri),
+                    contentDescription = "Item photo",
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop
                 )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                StatusBadge(status = item.status)
+            } else {
+                // Placeholder if no photo
+                Surface(
+                    modifier = Modifier.size(70.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF4F4F0)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("📷", fontSize = 28.sp, color = Color(0xFFCCCCCC))
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Title + Status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        item.title,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1a1a2e),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
 
-            // Description preview
-            Text(
-                text = item.description,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    Spacer(Modifier.width(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    // Status badge
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = when (item.status) {
+                            ItemStatus.LOST -> Color(0xFFFF4D6D).copy(alpha = 0.15f)
+                            ItemStatus.FOUND -> Color(0xFF2DD4A0).copy(alpha = 0.15f)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            when (item.status) {
+                                ItemStatus.LOST -> Color(0xFFFF4D6D)
+                                ItemStatus.FOUND -> Color(0xFF2DD4A0)
+                            }
+                        )
+                    ) {
+                        Text(
+                            item.status.name,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = when (item.status) {
+                                ItemStatus.LOST -> Color(0xFFFF4D6D)
+                                ItemStatus.FOUND -> Color(0xFF2DD4A0)
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
 
-            // Timestamp
-            Text(
-                text = formatTimestamp(item.reportedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Spacer(Modifier.height(4.dp))
+
+                // Description
+                Text(
+                    item.description,
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                // Timestamp
+                Text(
+                    formatTimestamp(item.reportedAt),
+                    fontSize = 10.sp,
+                    color = Color(0xFFAAAAAA)
+                )
+            }
         }
     }
 }
 
-/**
- * Format Unix epoch milliseconds to human-readable date+time.
- *
- * Example output: "Feb 19, 2026 at 02:25 PM"
- */
 private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }

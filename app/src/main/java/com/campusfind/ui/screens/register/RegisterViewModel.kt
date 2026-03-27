@@ -17,7 +17,10 @@ import javax.inject.Inject
  *
  * ViewModel for the registration screen.
  *
- * UPDATED: Now saves email to session for Settings/Profile screens.
+ * UPDATED: Messenger username is now REQUIRED for claim communication
+ * - Validates that messengerHandle is not blank
+ * - Auto-adds @ prefix if user doesn't include it
+ * - Blocks registration if messenger username is empty
  *
  * Why @HiltViewModel:
  * - Tells Hilt to manage this ViewModel's lifecycle and inject dependencies
@@ -70,7 +73,13 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun onMessengerHandleChanged(value: String) {
-        _uiState.update { it.copy(messengerHandle = value, error = null) }
+        // Auto-add @ prefix if user doesn't include it
+        val formattedValue = if (value.isNotBlank() && !value.startsWith("@")) {
+            "@$value"
+        } else {
+            value
+        }
+        _uiState.update { it.copy(messengerHandle = formattedValue, error = null) }
     }
 
     // ── REGISTRATION ─────────────────────────────────────────────────────────
@@ -78,10 +87,14 @@ class RegisterViewModel @Inject constructor(
     /**
      * Handle the register button click.
      *
+     * UPDATED: Messenger username is now REQUIRED
+     * - Validates that messengerHandle is not blank
+     * - Shows error: "Messenger username is required for coordinating item returns"
+     *
      * Validation + repository call delegated to RegisterUseCase.
      *
      * On success:
-     * - Save session (userId, userName, userEmail) via SessionManager  ← UPDATED
+     * - Save session (userId, userName, userEmail) via SessionManager
      * - Call onSuccess() callback to navigate to HomeScreen
      *
      * On failure:
@@ -96,14 +109,36 @@ class RegisterViewModel @Inject constructor(
 
         val currentState = _uiState.value
 
+        // ✅ VALIDATION: Messenger username is REQUIRED
+        if (currentState.messengerHandle.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(error = "Messenger username is required for coordinating item returns")
+            }
+            return
+        }
+
+        // ✅ VALIDATION: Messenger username must be at least 3 characters (including @)
+        if (currentState.messengerHandle.length < 3) {
+            _uiState.update {
+                it.copy(error = "Messenger username must be at least 2 characters")
+            }
+            return
+        }
+
         _uiState.update { it.copy(isSubmitting = true, error = null) }
 
         viewModelScope.launch {
+            // Remove @ prefix before saving (stored as "username" not "@username")
+            val cleanMessengerHandle = currentState.messengerHandle
+                ?.removePrefix("@")
+                ?.trim()
+
             val result = registerUseCase(
                 fullName        = currentState.fullName,
                 email           = currentState.email,
                 password        = currentState.password,
-                messengerHandle = currentState.messengerHandle.ifBlank { null }
+                confirmPassword = currentState.confirmPassword,
+                messengerHandle = cleanMessengerHandle  // ✅ Now guaranteed to be non-null
             )
 
             result.fold(
@@ -112,7 +147,7 @@ class RegisterViewModel @Inject constructor(
                     sessionManager.saveSession(
                         userId = user.id,
                         userName = user.fullName,
-                        userEmail = user.email  // ← ADDED
+                        userEmail = user.email
                     )
                     _uiState.update { it.copy(isSubmitting = false) }
                     // Navigate to Home (callback clears back stack)

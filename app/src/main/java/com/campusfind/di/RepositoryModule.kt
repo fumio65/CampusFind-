@@ -1,8 +1,12 @@
 package com.campusfind.di
 
+import com.campusfind.data.repository.ClaimRepositoryImpl
 import com.campusfind.data.repository.LostItemRepositoryImpl
+import com.campusfind.data.repository.TipRepositoryImpl
 import com.campusfind.data.repository.UserRepositoryImpl
+import com.campusfind.domain.repository.ClaimRepository
 import com.campusfind.domain.repository.LostItemRepository
+import com.campusfind.domain.repository.TipRepository
 import com.campusfind.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
@@ -13,22 +17,15 @@ import javax.inject.Singleton
 /**
  * FILE: app/src/main/java/com/campusfind/di/RepositoryModule.kt
  *
- * This is where the Dependency Inversion Principle (DIP) is enforced.
+ * Hilt module for repository bindings.
  *
- * @Binds tells Hilt: "when anyone asks for LostItemRepository (interface),
- * inject LostItemRepositoryImpl (concrete class)."
+ * UPDATED: Added TipRepository binding for Phase 7
  *
- * ViewModels and UseCases only ever see the interface — they never import
- * anything from the data/ package directly.
+ * Why @Binds?
+ * - More efficient than @Provides for simple interface → impl mapping
+ * - Enforces DIP: ViewModels depend on interfaces only
  *
- * @Binds is used instead of @Provides because Hilt can construct the Impl
- * classes automatically via their @Inject constructors — we only need to
- * declare the interface-to-implementation mapping here.
- *
- * Phase 1 → Phase 2 migration: change the @Binds target to
- * CloudSyncLostItemRepositoryImpl — zero changes anywhere else.
- *
- * See: DEC-002 (Repository Pattern), DEC-022 (Hilt/DIP), TASK-100c
+ * See: DEC-022 (Hilt DI, DIP), Phase 6 Claims Feature, Phase 7 Tips Feature
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -45,4 +42,16 @@ abstract class RepositoryModule {
     abstract fun bindUserRepository(
         impl: UserRepositoryImpl
     ): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindClaimRepository(
+        impl: ClaimRepositoryImpl
+    ): ClaimRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTipRepository(
+        impl: TipRepositoryImpl
+    ): TipRepository
 }

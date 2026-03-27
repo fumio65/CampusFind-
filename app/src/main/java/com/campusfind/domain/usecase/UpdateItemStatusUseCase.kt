@@ -12,8 +12,7 @@ import javax.inject.Inject
  * Use Case for updating an item's status.
  * Single Responsibility: enforce ownership and call repository.
  *
- * UPDATED: Now accepts target status as parameter (LOST or FOUND).
- * Supports bidirectional toggle between LOST ↔ FOUND.
+ * FIXED: Now calls repository.updateItemStatus() (correct method name)
  *
  * See: DEC-001 (MVVM), DEC-021 (ownership enforcement), TASK-114
  */
@@ -31,8 +30,7 @@ class UpdateItemStatusUseCase @Inject constructor(
      * @return Result.success(Unit) if status updated successfully
      *         Result.failure(exception) if not authorized or update fails
      *
-     * Used by: DetailViewModel.onToggleStatus()
-     * Demo behavior: Owner can toggle freely between LOST and FOUND
+     * Used by: DetailViewModel when marking as found
      */
     suspend operator fun invoke(item: LostItem, targetStatus: ItemStatus): Result<Unit> {
         // Ownership check
@@ -43,12 +41,7 @@ class UpdateItemStatusUseCase @Inject constructor(
             return Result.failure(Exception("You can only update your own items"))
         }
 
-        // Delegate to repository
-        return try {
-            repository.updateStatus(item.id, targetStatus)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        // Delegate to repository (FIXED: correct method name)
+        return repository.updateItemStatus(item.id, targetStatus)
     }
 }

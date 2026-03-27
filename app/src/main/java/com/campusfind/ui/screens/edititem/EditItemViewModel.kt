@@ -1,7 +1,9 @@
 package com.campusfind.ui.screens.edititem
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.campusfind.data.local.photo.PhotoManager
 import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.domain.repository.LostItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,60 +14,67 @@ import javax.inject.Inject
 @HiltViewModel
 class EditItemViewModel @Inject constructor(
     private val repository: LostItemRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val photoManager: PhotoManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditItemUiState())
     val uiState: StateFlow<EditItemUiState> = _uiState.asStateFlow()
 
-    private var currentItemId: String? = null
+    private var itemId: String? = null
 
-    /**
-     * Load existing item data
-     */
-    fun loadItem(itemId: String) {
-        currentItemId = itemId
+    fun loadItem(id: String) {
+        itemId = id
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
             try {
-                val item = repository.getItemById(itemId)
+                val item = repository.getItemById(id)
 
                 if (item == null) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Item not found"
+                            error = "Item not found",
+                            isItemLoaded = false
                         )
                     }
                     return@launch
                 }
 
                 // Check ownership
-                if (item.reportedBy != sessionManager.currentUserId) {
+                val currentUserId = sessionManager.currentUserId
+                if (item.reportedBy != currentUserId) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "You can only edit your own reports"
+                            error = "You can only edit your own reports",
+                            isItemLoaded = false
                         )
                     }
                     return@launch
                 }
 
-                // Pre-fill form with existing data
+                // Pre-fill form with current values
                 _uiState.update {
                     it.copy(
                         title = item.title,
                         description = item.description,
+                        location = item.location ?: "",
+                        currentPhotoUri = item.photoUri,
+                        selectedPhotoUri = null,
                         isLoading = false,
+                        isItemLoaded = true,
                         error = null
                     )
                 }
+
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load item"
+                        error = "Failed to load item: ${e.message}",
+                        isItemLoaded = false
                     )
                 }
             }
@@ -90,9 +99,26 @@ class EditItemViewModel @Inject constructor(
         }
     }
 
+    fun onLocationChanged(location: String) {
+        _uiState.update { it.copy(location = location) }
+    }
+
+    fun onPhotoSelected(uri: Uri?) {
+        _uiState.update { it.copy(selectedPhotoUri = uri) }
+    }
+
+    fun onRemovePhoto() {
+        _uiState.update {
+            it.copy(
+                selectedPhotoUri = null,
+                currentPhotoUri = null
+            )
+        }
+    }
+
     fun onSave(onSuccess: () -> Unit) {
         val currentState = _uiState.value
-        val itemId = currentItemId
+        val id = itemId ?: return
 
         // Validation
         var hasError = false
@@ -107,52 +133,63 @@ class EditItemViewModel @Inject constructor(
             hasError = true
         }
 
-        if (hasError || itemId == null) return
+        if (hasError) return
 
-        _uiState.update { it.copy(isSaving = true) }
+        _uiState.update { it.copy(isSaving = true, error = null) }
 
         viewModelScope.launch {
             try {
-                // Get the existing item
-                val existingItem = repository.getItemById(itemId)
+                // Handle photo:
+                // 1. If new photo selected → save it and use new path
+                // 2. If photo was removed (both null) → delete old photo, use null
+                // 3. If no change (selectedPhotoUri null, currentPhotoUri exists) → keep current
 
-                if (existingItem == null) {
+                val finalPhotoPath: String? = when {
+                    // New photo selected
+                    currentState.selectedPhotoUri != null -> {
+                        // Delete old photo if exists
+                        if (currentState.currentPhotoUri != null) {
+                            photoManager.deletePhoto(currentState.currentPhotoUri)
+                        }
+                        // Save new photo
+                        photoManager.savePhoto(currentState.selectedPhotoUri)
+                    }
+                    // Photo was removed
+                    currentState.currentPhotoUri == null && currentState.selectedPhotoUri == null -> {
+                        null
+                    }
+                    // No change - keep current photo
+                    else -> currentState.currentPhotoUri
+                }
+
+                // Update item in database
+                val result = repository.updateItemDetails(
+                    id = id,
+                    title = currentState.title.trim(),
+                    description = currentState.description.trim(),
+                    location = currentState.location.trim().ifBlank { null }
+                )
+
+                if (result.isSuccess) {
+                    _uiState.update { EditItemUiState() }
+                    onSuccess()
+                } else {
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            error = "Item not found"
+                            error = result.exceptionOrNull()?.message ?: "Failed to save changes"
                         )
                     }
-                    return@launch
                 }
 
-                // Update title and description
-                repository.updateItemDetails(
-                    id = itemId,
-                    title = currentState.title.trim(),
-                    description = currentState.description.trim()
-                )
-
-                _uiState.update { it.copy(isSaving = false) }
-                onSuccess()
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        error = "Failed to save: ${e.message}"
+                        error = "Failed to save changes: ${e.message}"
                     )
                 }
             }
         }
     }
 }
-
-data class EditItemUiState(
-    val title: String = "",
-    val description: String = "",
-    val titleError: String? = null,
-    val descriptionError: String? = null,
-    val isLoading: Boolean = false,
-    val isSaving: Boolean = false,
-    val error: String? = null
-)
