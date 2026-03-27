@@ -41,7 +41,7 @@ val ModernLostBg = Color(0xFFfff0f3)
 
 val ModernFound = Color(0xFF2dd4a0)
 val ModernFoundDim = Color(0xFF0d3328)
-val ModernFoundBg = Color(0xFFf0fdf9)
+val ModernFoundBg = Color(0xFFF0fdf9)
 val ModernFoundText = Color(0xFF1a6b50)
 
 val ModernError = Color(0xFFff4d6d)
@@ -101,11 +101,10 @@ fun CampusFindTheme(
             val window = (view.context as Activity).window
             val insetsController = WindowCompat.getInsetsController(window, view)
 
-            @Suppress("DEPRECATION")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                window.statusBarColor = colorScheme.primary.toArgb()
-                insetsController.isAppearanceLightStatusBars = !darkTheme
-            }
+            // ✅ Status bar is already transparent from themes.xml
+            // Just adjust icon colors based on light/dark theme
+            insetsController.isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

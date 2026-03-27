@@ -325,11 +325,11 @@ fun GradientHero(
                 .fillMaxWidth()
                 .padding(bottom = 16.dp, top = 8.dp)
         ) {
-            // Top navigation bar
+            // Top navigation bar - ✅ FIXED: Added top = 36.dp to clear status bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(start = 14.dp, top = 36.dp, end = 14.dp, bottom = 8.dp),  // ✅ CHANGED: split vertical into top + bottom
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -348,40 +348,44 @@ fun GradientHero(
 
                 Spacer(Modifier.weight(1f))
 
-                // Notifications
-                Surface(
-                    onClick = { /* TODO: Phase 2 */ },
-                    modifier = Modifier.size(36.dp),
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.12f),
-                    border = BorderStroke(width = 1.dp, color = Color.White.copy(alpha = 0.18f))
+                // Right side icons group
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("🔔", fontSize = 15.sp, color = Color.White)
-                    }
-                }
-
-                Spacer(Modifier.width(10.dp))
-
-                // Profile
-                Surface(
-                    onClick = onNavigateToProfile,
-                    modifier = Modifier.size(36.dp),
-                    shape = CircleShape,
-                    color = Color.Transparent
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(ModernAccent, Color(0xFF5246d5))
-                                ),
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                    // Notifications
+                    Surface(
+                        onClick = { /* TODO: Phase 2 */ },
+                        modifier = Modifier.size(36.dp),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.12f),
+                        border = BorderStroke(width = 1.dp, color = Color.White.copy(alpha = 0.18f))
                     ) {
-                        Text("👤", fontSize = 14.sp, color = Color.White)
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("🔔", fontSize = 15.sp, color = Color.White)
+                        }
+                    }
+
+                    // Profile
+                    Surface(
+                        onClick = onNavigateToProfile,
+                        modifier = Modifier.size(36.dp),
+                        shape = CircleShape,
+                        color = Color.Transparent
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(ModernAccent, Color(0xFF5246d5))
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("👤", fontSize = 14.sp, color = Color.White)
+                        }
                     }
                 }
             }

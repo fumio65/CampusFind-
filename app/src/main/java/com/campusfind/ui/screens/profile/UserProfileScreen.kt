@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
@@ -31,7 +32,6 @@ import com.campusfind.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
-import androidx.compose.ui.window.Dialog
 
 /**
  * FULLY DYNAMIC UserProfileScreen WITH EDIT MESSENGER
@@ -60,7 +60,6 @@ private fun UserProfileUiState.hasTrustScoreData(): Boolean {
     return (trustScore ?: 0) > 0
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
     onNavigateBack: () -> Unit,
@@ -76,15 +75,15 @@ fun UserProfileScreen(
         viewModel.loadProfile()
     }
 
-    Scaffold(
-        containerColor = Color(0xFFF4F4F0)
-    ) { paddingValues ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF4F4F0))
+    ) {
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = ModernAccent)
@@ -93,9 +92,7 @@ fun UserProfileScreen(
 
             uiState.error != null -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -121,9 +118,7 @@ fun UserProfileScreen(
 
             else -> {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     // ══════════════════════════════════════
                     // HERO SECTION (always shown)
@@ -168,7 +163,9 @@ fun UserProfileScreen(
                             )
 
                             Column(
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 36.dp)  // ✅ Adds spacing for status bar
                             ) {
                                 Spacer(Modifier.height(8.dp))
 
