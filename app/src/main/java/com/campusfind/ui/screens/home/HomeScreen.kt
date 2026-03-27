@@ -1,6 +1,7 @@
 package com.campusfind.ui.screens.home
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -25,11 +27,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.rememberAsyncImagePainter
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.components.NavigationDrawer
 import com.campusfind.ui.theme.*
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -319,35 +323,8 @@ fun GradientHero(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp)
+                .padding(bottom = 16.dp, top = 8.dp)
         ) {
-            // Status bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "9:41",
-                        fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                    Text(
-                        text = "●●● 82%",
-                        fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                }
-            }
-
             // Top navigation bar
             Row(
                 modifier = Modifier
@@ -620,114 +597,39 @@ fun ModernItemCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // Gradient photo hero
+            // ✅ PHOTO HERO - Loads from internal File for instant offline display
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(110.dp)
+                    .height(200.dp)
             ) {
-                // Background gradient (shown when no photo or behind photo)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF2a1838),
-                                    Color(0xFF3e2f58),
-                                    Color(0xFF2a3830)
-                                )
-                            )
-                        )
-                )
+                // Check if photo exists
+                if (item.photoUri != null && item.photoUri.isNotBlank()) {
+                    // ✅ LOAD FROM FILE PATH (instant, offline-first)
+                    val photoFile = remember(item.photoUri) { File(item.photoUri) }
 
-                // Actual photo (if available)
-                // TODO: Replace with actual image loading when you add photo field to LostItem
-                // Example with Coil:
-                // if (!item.photoUrl.isNullOrEmpty()) {
-                //     AsyncImage(
-                //         model = item.photoUrl,
-                //         contentDescription = item.title,
-                //         modifier = Modifier.fillMaxSize(),
-                //         contentScale = ContentScale.Crop
-                //     )
-                // } else {
-                //     // Show placeholder with gradient + orbs
-                // }
+                    if (photoFile.exists()) {
+                        // Photo exists - load it instantly
+                        Image(
+                            painter = rememberAsyncImagePainter(photoFile),
+                            contentDescription = "Item photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
 
-                // Ambient orbs (layered for blur effect) - shown when no photo
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .offset(x = 20.dp, y = (-20).dp)
-                        .align(Alignment.TopEnd)
-                        .background(
-                            color = ModernAccent.copy(alpha = 0.08f),
-                            shape = CircleShape
+                        // Dark overlay for badge readability
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.2f))
                         )
-                )
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .offset(x = 10.dp, y = (-10).dp)
-                        .align(Alignment.TopEnd)
-                        .background(
-                            color = ModernAccent.copy(alpha = 0.15f),
-                            shape = CircleShape
-                        )
-                )
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .offset(x = 0.dp, y = 0.dp)
-                        .align(Alignment.TopEnd)
-                        .background(
-                            color = ModernAccent.copy(alpha = 0.2f),
-                            shape = CircleShape
-                        )
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .offset(x = 20.dp, y = 20.dp)
-                        .align(Alignment.BottomStart)
-                        .background(
-                            color = ModernFound.copy(alpha = 0.06f),
-                            shape = CircleShape
-                        )
-                )
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .offset(x = 10.dp, y = 10.dp)
-                        .align(Alignment.BottomStart)
-                        .background(
-                            color = ModernFound.copy(alpha = 0.12f),
-                            shape = CircleShape
-                        )
-                )
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .offset(x = 0.dp, y = 0.dp)
-                        .align(Alignment.BottomStart)
-                        .background(
-                            color = ModernFound.copy(alpha = 0.15f),
-                            shape = CircleShape
-                        )
-                )
-
-                // Photo placeholder icon (only show when no photo)
-                Box(
-                    modifier = Modifier.align(Alignment.Center),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "📷",
-                        fontSize = 48.sp,
-                        color = Color.White.copy(alpha = 0.3f)
-                    )
+                    } else {
+                        // File doesn't exist - show gradient placeholder
+                        GradientPlaceholder(modifier = Modifier.fillMaxSize())
+                    }
+                } else {
+                    // No photo - show gradient placeholder
+                    GradientPlaceholder(modifier = Modifier.fillMaxSize())
                 }
 
                 // Status badge overlay (always on top)
@@ -791,7 +693,12 @@ fun ModernItemCard(
 
                 // Meta pills
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MetaPill(icon = "📍", text = "Campus")
+                    // ✅ DISPLAY ACTUAL LOCATION from database
+                    if (item.location != null && item.location.isNotBlank()) {
+                        MetaPill(icon = "📍", text = item.location)
+                    } else {
+                        MetaPill(icon = "📍", text = "Campus")
+                    }
                     MetaPill(icon = "🕐", text = formatTimestamp(item.reportedAt))
                 }
 
@@ -827,6 +734,99 @@ fun ModernItemCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun GradientPlaceholder(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        // Gradient background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF2a1838),
+                            Color(0xFF3e2f58),
+                            Color(0xFF2a3830)
+                        )
+                    )
+                )
+        )
+
+        // Ambient orbs
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .offset(x = 20.dp, y = (-20).dp)
+                .align(Alignment.TopEnd)
+                .background(
+                    color = ModernAccent.copy(alpha = 0.08f),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .offset(x = 10.dp, y = (-10).dp)
+                .align(Alignment.TopEnd)
+                .background(
+                    color = ModernAccent.copy(alpha = 0.15f),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .align(Alignment.TopEnd)
+                .background(
+                    color = ModernAccent.copy(alpha = 0.2f),
+                    shape = CircleShape
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .offset(x = 20.dp, y = 20.dp)
+                .align(Alignment.BottomStart)
+                .background(
+                    color = ModernFound.copy(alpha = 0.06f),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .offset(x = 10.dp, y = 10.dp)
+                .align(Alignment.BottomStart)
+                .background(
+                    color = ModernFound.copy(alpha = 0.12f),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .align(Alignment.BottomStart)
+                .background(
+                    color = ModernFound.copy(alpha = 0.15f),
+                    shape = CircleShape
+                )
+        )
+
+        // Photo placeholder icon
+        Box(
+            modifier = Modifier.align(Alignment.Center),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "📷",
+                fontSize = 48.sp,
+                color = Color.White.copy(alpha = 0.3f)
+            )
         }
     }
 }

@@ -26,6 +26,11 @@ import com.campusfind.ui.theme.*
 
 /**
  * Modern register screen - scrollable with 5 fields + password strength indicator
+ *
+ * UPDATED: Messenger Username is now REQUIRED (not optional)
+ * - Shows red asterisk (*)
+ * - Shows "REQUIRED" badge in red
+ * - Validation enforced in RegisterViewModel
  */
 @Composable
 fun RegisterScreen(
@@ -364,7 +369,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // ── Messenger Username (Optional) ──
+                    // ── Messenger Username (REQUIRED) ── ✅ UPDATED
                     Row(
                         modifier = Modifier.padding(bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -376,19 +381,25 @@ fun RegisterScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White.copy(alpha = 0.8f)
                         )
+                        Text(
+                            text = "*",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ModernError
+                        )
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = ModernFound.copy(alpha = 0.2f),
+                            color = ModernError.copy(alpha = 0.2f),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                ModernFound.copy(alpha = 0.3f)
+                                ModernError.copy(alpha = 0.3f)
                             )
                         ) {
                             Text(
-                                text = "OPTIONAL",
+                                text = "REQUIRED",
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ModernFound,
+                                color = ModernError,
                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                             )
                         }
@@ -437,7 +448,7 @@ fun RegisterScreen(
                     )
 
                     Text(
-                        text = "🔒 Only shown to approved finders — helps them contact you to return your item",
+                        text = "🔒 Needed to coordinate item return with finders — only shown after you approve their claim",
                         fontSize = 9.sp,
                         color = Color.White.copy(alpha = 0.4f),
                         lineHeight = 12.sp,
@@ -448,7 +459,7 @@ fun RegisterScreen(
 
                     // ── Create Account button ──
                     Button(
-                        onClick = { viewModel.onRegisterClicked(onSuccess = onNavigateToHome) },  // ← FIXED
+                        onClick = { viewModel.onRegisterClicked(onSuccess = onNavigateToHome) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp),

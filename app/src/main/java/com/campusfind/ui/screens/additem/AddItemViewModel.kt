@@ -1,89 +1,97 @@
 package com.campusfind.ui.screens.additem
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.campusfind.domain.usecase.AddItemUseCase
+import com.campusfind.data.local.photo.PhotoManager
+import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.domain.repository.LostItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * FILE: app/src/main/java/com/campusfind/ui/screens/additem/AddItemViewModel.kt
- *
- * ViewModel for the add item screen.
- *
- * UPDATED: Now handles location and photoUri state.
- *
- * See: DEC-001 (MVVM), DEC-022 (Hilt DI), TASK-113
- */
 @HiltViewModel
 class AddItemViewModel @Inject constructor(
-    private val addItemUseCase: AddItemUseCase
+    private val repository: LostItemRepository,
+    private val sessionManager: SessionManager,
+    private val photoManager: PhotoManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddItemUiState())
     val uiState: StateFlow<AddItemUiState> = _uiState.asStateFlow()
 
-    // ── TEXT FIELD UPDATES ───────────────────────────────────────────────────
-
-    fun onTitleChanged(value: String) {
-        _uiState.update { it.copy(title = value, error = null) }
+    fun onTitleChanged(title: String) {
+        _uiState.update { it.copy(title = title) }
     }
 
-    fun onDescriptionChanged(value: String) {
-        _uiState.update { it.copy(description = value, error = null) }
+    fun onDescriptionChanged(description: String) {
+        _uiState.update { it.copy(description = description) }
     }
 
-    fun onLocationChanged(value: String) {
-        _uiState.update { it.copy(location = value, error = null) }
+    // ✅ NEW: Handle location changes
+    fun onLocationChanged(location: String) {
+        _uiState.update { it.copy(location = location) }
     }
 
-    // ── PHOTO PICKER ─────────────────────────────────────────────────────────
-
-    /**
-     * Called when user picks a photo.
-     * @param uri Android content URI (e.g., content://media/external/images/media/1234)
-     */
-    fun onPhotoSelected(uri: String?) {
+    fun onPhotoSelected(uri: Uri?) {
         _uiState.update { it.copy(photoUri = uri) }
     }
 
-    // ── SUBMIT ───────────────────────────────────────────────────────────────
+    fun onRemovePhoto() {
+        _uiState.update { it.copy(photoUri = null) }
+    }
 
     fun onSubmit(onSuccess: () -> Unit) {
         val currentState = _uiState.value
 
-        // Prevent double-submission
-        if (currentState.isSubmitting) return
+        // Validation
+        if (currentState.title.isBlank()) {
+            _uiState.update { it.copy(error = "Title is required") }
+            return
+        }
+
+        if (currentState.description.isBlank()) {
+            _uiState.update { it.copy(error = "Description is required") }
+            return
+        }
 
         _uiState.update { it.copy(isSubmitting = true, error = null) }
 
         viewModelScope.launch {
-            val result = addItemUseCase(
-                title = currentState.title,
-                description = currentState.description,
-                location = currentState.location.ifBlank { null },
-                photoUri = currentState.photoUri
-            )
+            try {
+                // Save photo to internal storage (offline-first)
+                val internalPhotoPath = currentState.photoUri?.let { uri ->
+                    photoManager.savePhoto(uri)
+                }
 
-            result.fold(
-                onSuccess = {
-                    _uiState.update { it.copy(isSubmitting = false) }
+                // ✅ UPDATED: Now includes location
+                val result = repository.addItem(
+                    title = currentState.title.trim(),
+                    description = currentState.description.trim(),
+                    location = currentState.location.trim().ifBlank { null },  // ✅ NEW
+                    photoUri = internalPhotoPath
+                )
+
+                if (result.isSuccess) {
+                    _uiState.update { AddItemUiState() } // Reset form
                     onSuccess()
-                },
-                onFailure = { exception ->
+                } else {
                     _uiState.update {
                         it.copy(
                             isSubmitting = false,
-                            error = exception.message ?: "Failed to create report"
+                            error = result.exceptionOrNull()?.message ?: "Failed to save item"
                         )
                     }
                 }
-            )
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        error = "Failed to save item: ${e.message}"
+                    )
+                }
+            }
         }
     }
 }

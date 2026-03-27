@@ -5,85 +5,108 @@ import com.campusfind.domain.repository.UserRepository
 import javax.inject.Inject
 
 /**
- * FILE: app/src/main/java/com/campusfind/domain/usecase/RegisterUseCase.kt
+ * RegisterUseCase - UPDATED
  *
- * Use Case for user registration.
- * Single Responsibility: validate registration input and call the repository.
+ * Single responsibility: Register a new user
  *
- * Why this exists separate from RegisterViewModel:
- * - SRP — ViewModel manages UI state, UseCase handles business logic and validation
- * - All validation rules are centralized here, not scattered across the ViewModel
- * - Pure Kotlin — testable without Android or Compose dependencies
+ * UPDATED: Messenger username is now REQUIRED (not optional)
+ * - Validates that messengerHandle is not null or blank
+ * - Returns error if messenger username is missing
+ * - Ensures all users can coordinate item returns via Messenger
  *
- * Why operator fun invoke:
- * - Allows calling the use case like a function: registerUseCase(name, email, password, ...)
- * - Standard Kotlin convention for single-method use cases
+ * Validation rules (enforced in this order):
+ * 1. Full name must not be blank
+ * 2. Email must not be blank and must contain @
+ * 3. Password must be at least 8 characters
+ * 4. Password and confirm password must match
+ * 5. Messenger username must not be blank (REQUIRED) ✅ NEW
  *
- * Validation rules enforced here:
- * - Full name is required (not blank)
- * - Email is required and must contain '@' (basic format check)
- * - Password is required and must be at least 6 characters
- * - Messenger handle is optional (nullable)
+ * Why UseCase instead of putting logic in ViewModel:
+ * - Single Responsibility Principle (SRP) — ViewModel handles UI state, UseCase handles business logic
+ * - Reusability — same logic can be used from different ViewModels or screens
+ * - Testability — easy to unit test without Android dependencies
  *
  * Why @Inject constructor:
- * - Hilt provides UserRepository automatically (bound by RepositoryModule)
+ * - Hilt injects UserRepository automatically
+ * - No manual dependency creation
+ * - Satisfies Dependency Inversion Principle (DIP) — depends on interface, not implementation
  *
- * See: DEC-001 (MVVM), DEC-002 (Repository), DEC-022 (Hilt DI),
- *      TASK-106, TASK-107 (RegisterViewModel)
+ * @param fullName User's full name (e.g. "Juan dela Cruz")
+ * @param email University email (must contain @)
+ * @param password Plain text password (min 8 chars) — will be hashed in repository
+ * @param confirmPassword Must match password
+ * @param messengerHandle Messenger username (REQUIRED) — stored without @ prefix
+ *
+ * @return Result<User> — Success with User domain model, or Failure with exception message
  */
 class RegisterUseCase @Inject constructor(
-    private val repository: UserRepository   // interface — DIP satisfied
+    private val userRepository: UserRepository
 ) {
-
-    /**
-     * Attempt to register a new user account.
-     *
-     * Validation:
-     * - Full name is required (not blank)
-     * - Email is required and must contain '@'
-     * - Password is required and must be at least 6 characters
-     * - Messenger handle is optional (nullable)
-     *
-     * @param fullName         User's full name (required)
-     * @param email            University email (required, must contain '@')
-     * @param password         Plain text password (required, min 6 chars)
-     * @param messengerHandle  Optional Messenger username (nullable)
-     *
-     * @return Result.success(User) if account created successfully
-     *         Result.failure(exception) if validation fails or email already exists
-     *
-     * Used by: RegisterViewModel.onSubmit()
-     */
     suspend operator fun invoke(
         fullName: String,
         email: String,
         password: String,
-        messengerHandle: String?
+        confirmPassword: String,
+        messengerHandle: String?  // Still nullable in signature for backward compatibility
     ): Result<User> {
+        // ── VALIDATION ────────────────────────────────────────────────
 
-        // Validation — fail fast on first error
+        // 1. Full name validation
         if (fullName.isBlank()) {
             return Result.failure(Exception("Full name is required"))
         }
+
+        if (fullName.length < 2) {
+            return Result.failure(Exception("Full name must be at least 2 characters"))
+        }
+
+        // 2. Email validation
         if (email.isBlank()) {
             return Result.failure(Exception("Email is required"))
         }
+
         if (!email.contains("@")) {
-            return Result.failure(Exception("Email must be a valid email address"))
+            return Result.failure(Exception("Please enter a valid email address"))
         }
+
+        // 3. Password validation
         if (password.isBlank()) {
             return Result.failure(Exception("Password is required"))
         }
-        if (password.length < 6) {
-            return Result.failure(Exception("Password must be at least 6 characters"))
+
+        if (password.length < 8) {
+            return Result.failure(Exception("Password must be at least 8 characters"))
         }
 
-        // Delegate to repository
-        return repository.register(
-            fullName.trim(),
-            email.trim(),
-            password,
-            messengerHandle?.trim()?.takeIf { it.isNotBlank() }   // convert empty string to null
+        // 4. Confirm password validation
+        if (password != confirmPassword) {
+            return Result.failure(Exception("Passwords do not match"))
+        }
+
+        // 5. ✅ NEW: Messenger username validation (REQUIRED)
+        if (messengerHandle.isNullOrBlank()) {
+            return Result.failure(
+                Exception("Messenger username is required to coordinate item returns with finders")
+            )
+        }
+
+        if (messengerHandle.length < 2) {
+            return Result.failure(Exception("Messenger username must be at least 2 characters"))
+        }
+
+        // ── REPOSITORY CALL ───────────────────────────────────────────
+
+        // All validation passed — delegate to repository
+        // Repository will:
+        // 1. Check if email already exists
+        // 2. Hash the password (SHA-256)
+        // 3. Insert user into Room database
+        // 4. Return User domain model or failure
+        return userRepository.register(
+            fullName = fullName.trim(),
+            email = email.trim().lowercase(),
+            password = password,
+            messengerHandle = messengerHandle.trim()  // ✅ Now guaranteed to be non-null
         )
     }
 }

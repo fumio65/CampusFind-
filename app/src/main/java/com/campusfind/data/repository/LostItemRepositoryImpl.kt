@@ -2,6 +2,7 @@ package com.campusfind.data.repository
 
 import com.campusfind.data.local.database.LostItemDao
 import com.campusfind.data.local.database.LostItemEntity
+import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.domain.repository.LostItemRepository
@@ -9,91 +10,99 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import javax.inject.Inject
-import javax.inject.Singleton
 
-/**
- * FILE: app/src/main/java/com/campusfind/data/repository/LostItemRepositoryImpl.kt
- *
- * Implementation of LostItemRepository using Room for local storage.
- *
- * UPDATED: Added updateItemDetails() for editing items
- *
- * See: DEC-002 (Repository), DEC-009 (UUID), DEC-010 (enum storage),
- *      DEC-011 (timestamps), DEC-022 (Hilt DI), TASK-100c, TASK-111, TASK-113
- */
-@Singleton
 class LostItemRepositoryImpl @Inject constructor(
-    private val lostItemDao: LostItemDao
+    private val dao: LostItemDao,
+    private val sessionManager: SessionManager
 ) : LostItemRepository {
 
-    override fun getAllItems(): Flow<List<LostItem>> {
-        return lostItemDao.getAllItems().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override fun getAllItems(): Flow<List<LostItem>> =
+        dao.getAllItems().map { list -> list.map { it.toDomain() } }
 
-    override fun getItemsByStatus(status: ItemStatus): Flow<List<LostItem>> {
-        return lostItemDao.getItemsByStatus(status.name).map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override fun getItemsByStatus(status: ItemStatus): Flow<List<LostItem>> =
+        dao.getItemsByStatus(status.name).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getItemById(id: String): LostItem? {
-        return lostItemDao.getItemById(id)?.toDomain()
-    }
+    override suspend fun getItemById(id: String): LostItem? =
+        dao.getItemById(id)?.toDomain()
 
+    override fun getItemsByUser(userId: String): Flow<List<LostItem>> =
+        dao.getItemsByUser(userId).map { list -> list.map { it.toDomain() } }
+
+    // ✅ UPDATED: Now accepts location parameter
     override suspend fun addItem(
         title: String,
         description: String,
         location: String?,
-        photoUri: String?,
-        reportedBy: String
-    ) {
-        val timestamp = System.currentTimeMillis()
-        val entity = LostItemEntity(
-            id              = UUID.randomUUID().toString(),
-            title           = title,
-            description     = description,
-            location        = location,
-            photoUri        = photoUri,
-            status          = ItemStatus.LOST.name,
-            reportedBy      = reportedBy,
-            reportedAt      = timestamp,
-            lastModifiedAt  = timestamp
-        )
-        lostItemDao.insertItem(entity)
+        photoUri: String?
+    ): Result<Unit> {
+        return try {
+            val currentUserId = sessionManager.currentUserId
+                ?: return Result.failure(Exception("Not logged in"))
+
+            val entity = LostItemEntity(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                description = description,
+                location = location,  // ✅ NEW
+                status = "LOST",
+                reportedBy = currentUserId,
+                reportedAt = System.currentTimeMillis(),
+                lastModifiedAt = System.currentTimeMillis(),
+                photoUri = photoUri
+            )
+            dao.insertItem(entity)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override suspend fun updateStatus(id: String, status: ItemStatus) {
-        val timestamp = System.currentTimeMillis()
-        lostItemDao.updateItemStatus(id, status.name, timestamp)
-    }
-
-    override suspend fun deleteItem(id: String) {
-        lostItemDao.deleteItem(id)
-    }
-
-    // ← ADDED THIS METHOD
+    // ✅ UPDATED: Now accepts location parameter
     override suspend fun updateItemDetails(
         id: String,
         title: String,
-        description: String
-    ) {
-        val timestamp = System.currentTimeMillis()
-        lostItemDao.updateItemDetails(id, title, description, timestamp)
+        description: String,
+        location: String?
+    ): Result<Unit> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+            // Note: You'll need to add this method to LostItemDao
+            dao.updateItemDetailsWithLocation(id, title, description, location, timestamp)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    private fun LostItemEntity.toDomain(): LostItem {
-        return LostItem(
-            id              = id,
-            title           = title,
-            description     = description,
-            location        = location,
-            photoUri        = photoUri,
-            status          = ItemStatus.fromString(status),
-            reportedBy      = reportedBy,
-            reportedAt      = reportedAt,
-            lastModifiedAt  = lastModifiedAt
-        )
+    override suspend fun updateItemStatus(id: String, status: ItemStatus): Result<Unit> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+            dao.updateItemStatus(id, status.name, timestamp)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
+
+    override suspend fun deleteItem(id: String): Result<Unit> {
+        return try {
+            dao.deleteItem(id)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ✅ UPDATED: Mapping includes location
+    private fun LostItemEntity.toDomain() = LostItem(
+        id = id,
+        title = title,
+        description = description,
+        location = location,  // ✅ NEW
+        status = ItemStatus.valueOf(status),
+        reportedBy = reportedBy,
+        reportedAt = reportedAt,
+        lastModifiedAt = lastModifiedAt,
+        photoUri = photoUri
+    )
 }
