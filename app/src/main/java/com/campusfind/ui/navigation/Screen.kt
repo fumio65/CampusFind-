@@ -3,7 +3,7 @@ package com.campusfind.ui.navigation
 /**
  * Navigation routes for CampusFind+
  *
- * UPDATED: Added SubmitClaim and ReviewClaims routes (Phase 6)
+ * UPDATED: Added SmartHistory route + Phase 6 Claims
  */
 sealed class Screen(val route: String) {
 
@@ -27,8 +27,9 @@ sealed class Screen(val route: String) {
     // User
     object Profile : Screen("profile")
     object Settings : Screen("settings")
+    object SmartHistory : Screen("smart_history")  // ✅ NEW: Smart History
 
-    // Claims (NEW IN PHASE 6)
+    // Claims (Phase 6)
     object SubmitClaim : Screen("submit_claim/{itemId}") {
         fun createRoute(itemId: String) = "submit_claim/$itemId"
     }

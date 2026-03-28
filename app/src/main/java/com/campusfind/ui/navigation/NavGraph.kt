@@ -17,14 +17,14 @@ import com.campusfind.ui.screens.onboarding.OnboardingScreen
 import com.campusfind.ui.screens.profile.UserProfileScreen
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
-import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen  // NEW: Phase 6
-import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen    // NEW: Phase 6
+import com.campusfind.ui.screens.smarthistory.SmartHistoryScreen  // ✅ NEW
+import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen
+import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen
 
 /**
  * Navigation graph with modern HomeScreen support
  *
- * UPDATED: Fixed Smart History crash - removed navigation call
- * Phase 2 feature navigation disabled until screen is implemented
+ * UPDATED: Added Smart History screen
  */
 @Composable
 fun CampusFindNavGraph(
@@ -108,10 +108,8 @@ fun CampusFindNavGraph(
                     navController.navigate(Screen.Profile.route)
                 },
                 onNavigateToSmartHistory = {
-                    // ✅ FIXED: Phase 2 feature - do nothing to prevent crash
-                    // Smart History screen not yet implemented
-                    // When implemented, add: navController.navigate(Screen.SmartHistory.route)
-                    android.util.Log.d("CampusFind", "Smart History - Phase 2 feature (not implemented)")
+                    // ✅ ENABLED: Navigate to Smart History
+                    navController.navigate(Screen.SmartHistory.route)
                 },
                 onLogout = {
                     sessionManager.clearSession()
@@ -150,7 +148,6 @@ fun CampusFindNavGraph(
                 onNavigateToEdit = { itemId ->
                     navController.navigate(Screen.EditItem.createRoute(itemId))
                 },
-                // ↓ NEW: Phase 6 Claims navigation
                 onNavigateToSubmitClaim = { itemId ->
                     navController.navigate(Screen.SubmitClaim.createRoute(itemId))
                 },
@@ -214,6 +211,19 @@ fun CampusFindNavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                }
+            )
+        }
+
+        // ── Smart History Route ──────────────────────────────────────────────
+
+        composable(Screen.SmartHistory.route) {
+            SmartHistoryScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToDetail = { itemId ->
+                    navController.navigate(Screen.Detail.createRoute(itemId))
                 }
             )
         }
