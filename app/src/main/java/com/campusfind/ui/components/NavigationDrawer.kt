@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -15,10 +15,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.campusfind.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Modern Navigation Drawer
- * Shown when burger menu (☰) is tapped
+ * ✅ SPAM-PROOF: Prevents rapid-click navigation crashes
  */
 @Composable
 fun NavigationDrawer(
@@ -30,6 +32,38 @@ fun NavigationDrawer(
     onLogout: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+
+    // ✅ ANTI-SPAM: Track navigation state
+    var isNavigating by remember { mutableStateOf(false) }
+    var lastClickTime by remember { mutableStateOf(0L) }
+
+    fun safeNavigate(action: () -> Unit) {
+        val currentTime = System.currentTimeMillis()
+
+        // Block rapid clicks (within 500ms)
+        if (isNavigating || (currentTime - lastClickTime) < 500L) {
+            android.util.Log.d("NavigationDrawer", "⚠️ Click blocked - too fast!")
+            return
+        }
+
+        isNavigating = true
+        lastClickTime = currentTime
+
+        scope.launch {
+            try {
+                onDismiss()        // 1. Start closing drawer
+                delay(300)         // 2. Wait for close animation
+                action()           // 3. Navigate
+                delay(200)         // 4. Safety buffer before allowing next click
+            } catch (e: Exception) {
+                android.util.Log.e("NavigationDrawer", "Navigation error", e)
+            } finally {
+                isNavigating = false
+            }
+        }
+    }
+
     ModalDrawerSheet(
         modifier = Modifier.width(280.dp),
         drawerContainerColor = Color(0xFF1a1a1f),
@@ -45,10 +79,7 @@ fun NavigationDrawer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .clickable {
-                        onNavigateToProfile()
-                        onDismiss()
-                    }
+                    .clickable { safeNavigate(onNavigateToProfile) }
             ) {
                 // Avatar with gradient
                 Box(
@@ -72,7 +103,6 @@ fun NavigationDrawer(
 
                 Spacer(Modifier.height(12.dp))
 
-                // User name
                 Text(
                     text = currentUserName,
                     fontSize = 16.sp,
@@ -82,7 +112,6 @@ fun NavigationDrawer(
 
                 Spacer(Modifier.height(4.dp))
 
-                // Email
                 Text(
                     text = currentUserEmail,
                     fontSize = 12.sp,
@@ -100,38 +129,29 @@ fun NavigationDrawer(
             DrawerMenuItem(
                 icon = "👤",
                 label = "Profile",
-                onClick = {
-                    onNavigateToProfile()
-                    onDismiss()
-                }
+                onClick = { safeNavigate(onNavigateToProfile) },
+                isEnabled = !isNavigating
             )
 
             DrawerMenuItem(
                 icon = "📊",
                 label = "Smart History",
-                onClick = {
-                    onNavigateToSmartHistory()
-                    onDismiss()
-                }
+                onClick = { safeNavigate(onNavigateToSmartHistory) },
+                isEnabled = !isNavigating
             )
 
             DrawerMenuItem(
                 icon = "⚙️",
                 label = "Settings",
-                onClick = {
-                    onNavigateToSettings()
-                    onDismiss()
-                }
+                onClick = { safeNavigate(onNavigateToSettings) },
+                isEnabled = !isNavigating
             )
 
             Spacer(Modifier.weight(1f))
 
             // ══════════ LOGOUT BUTTON ══════════
             Surface(
-                onClick = {
-                    onLogout()
-                    onDismiss()
-                },
+                onClick = { safeNavigate(onLogout) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
@@ -140,7 +160,8 @@ fun NavigationDrawer(
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
                     ModernError.copy(alpha = 0.3f)
-                )
+                ),
+                enabled = !isNavigating
             ) {
                 Row(
                     modifier = Modifier
@@ -154,12 +175,15 @@ fun NavigationDrawer(
                         "Logout",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = ModernError
+                        color = if (isNavigating)
+                            ModernError.copy(alpha = 0.5f)
+                        else
+                            ModernError
                     )
                 }
             }
 
-            // App version (optional)
+            // App version
             Text(
                 text = "CampusFind+ v1.0.0",
                 fontSize = 10.sp,
@@ -176,12 +200,14 @@ fun NavigationDrawer(
 fun DrawerMenuItem(
     icon: String,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isEnabled: Boolean = true
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent
+        color = Color.Transparent,
+        enabled = isEnabled
     ) {
         Row(
             modifier = Modifier
@@ -190,12 +216,19 @@ fun DrawerMenuItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(icon, fontSize = 18.sp)
+            Text(
+                icon,
+                fontSize = 18.sp,
+                color = if (isEnabled) Color.White else Color.White.copy(alpha = 0.3f)
+            )
             Text(
                 label,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.9f)
+                color = if (isEnabled)
+                    Color.White.copy(alpha = 0.9f)
+                else
+                    Color.White.copy(alpha = 0.3f)
             )
         }
     }

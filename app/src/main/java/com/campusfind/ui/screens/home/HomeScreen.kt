@@ -839,7 +839,7 @@ fun GradientPlaceholder(modifier: Modifier = Modifier) {
 fun MetaPill(icon: String, text: String) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFf9f9f6),
+        color = Color(0xFFF9f9f6),
         border = BorderStroke(width = 1.dp, color = Color(0xFFe8e8e4))
     ) {
         Row(
