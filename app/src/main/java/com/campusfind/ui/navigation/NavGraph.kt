@@ -23,7 +23,8 @@ import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen    // NEW: Phase 
 /**
  * Navigation graph with modern HomeScreen support
  *
- * UPDATED: Added Claims navigation routes (Phase 6)
+ * UPDATED: Fixed Smart History crash - removed navigation call
+ * Phase 2 feature navigation disabled until screen is implemented
  */
 @Composable
 fun CampusFindNavGraph(
@@ -107,8 +108,10 @@ fun CampusFindNavGraph(
                     navController.navigate(Screen.Profile.route)
                 },
                 onNavigateToSmartHistory = {
-                    // TODO: Navigate to Smart History screen when implemented (Phase 2)
-                    navController.navigate(Screen.Settings.route)
+                    // ✅ FIXED: Phase 2 feature - do nothing to prevent crash
+                    // Smart History screen not yet implemented
+                    // When implemented, add: navController.navigate(Screen.SmartHistory.route)
+                    android.util.Log.d("CampusFind", "Smart History - Phase 2 feature (not implemented)")
                 },
                 onLogout = {
                     sessionManager.clearSession()
@@ -203,10 +206,8 @@ fun CampusFindNavGraph(
                     navController.navigate(Screen.AddItem.route)
                 },
                 onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                        launchSingleTop = true
-                    }
+                    // ✅ FIX: Just go back - we came from Home, so going back = Home
+                    navController.popBackStack()
                 },
                 onNavigateToDetail = { itemId ->
                     navController.navigate(Screen.Detail.createRoute(itemId))
