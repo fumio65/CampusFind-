@@ -22,17 +22,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.campusfind.ui.theme.*
-
-/**
- * SettingsScreen - App settings and account management
- *
- * Features:
- * - Dark mode toggle
- * - Notification settings
- * - About app
- * - Help & Support
- * - Logout with confirmation
- */
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,13 +38,13 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = Color(0xFFF4F4F0)
-    ) { paddingValues ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF4F4F0))
+    ) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier = Modifier.fillMaxSize()
         ) {
             // ══════════════════════════════════════
             // HERO SECTION
@@ -71,9 +63,9 @@ fun SettingsScreen(
                         )
                         .padding(bottom = 24.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Push content below the status bar — replaces Scaffold's automatic inset
+                        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                         Spacer(Modifier.height(8.dp))
 
                         // Back button
@@ -91,10 +83,8 @@ fun SettingsScreen(
                             ) {
                                 Row(
                                     modifier = Modifier.padding(
-                                        start = 8.dp,
-                                        end = 12.dp,
-                                        top = 6.dp,
-                                        bottom = 6.dp
+                                        start = 8.dp, end = 12.dp,
+                                        top = 6.dp, bottom = 6.dp
                                     ),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -106,19 +96,11 @@ fun SettingsScreen(
                                             .background(Color.White.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            "‹",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
+                                        Text("‹", fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold, color = Color.White)
                                     }
-                                    Text(
-                                        "Back",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.White
-                                    )
+                                    Text("Back", fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold, color = Color.White)
                                 }
                             }
                         }
@@ -132,10 +114,7 @@ fun SettingsScreen(
                                 .padding(horizontal = 20.dp),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            Text(
-                                "⚙️",
-                                fontSize = 48.sp
-                            )
+                            Text("⚙️", fontSize = 48.sp)
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 "Settings",
@@ -161,7 +140,7 @@ fun SettingsScreen(
             }
 
             // ══════════════════════════════════════
-            // PREFERENCES SECTION
+            // ACCOUNT INFO
             // ══════════════════════════════════════
             item {
                 Column(
@@ -171,21 +150,16 @@ fun SettingsScreen(
                 ) {
                     Text(
                         "ACCOUNT INFO",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
-                        letterSpacing = 0.6.sp,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = Color(0xFFAAAAAA), letterSpacing = 0.6.sp,
                         modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                     )
-
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = Color.White,
                         border = BorderStroke(1.5.dp, Color(0xFFE8E8E4))
                     ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -207,19 +181,10 @@ fun SettingsScreen(
                                         )
                                     }
                                 }
-
                                 Column {
-                                    Text(
-                                        currentUserName,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1a1a2e)
-                                    )
-                                    Text(
-                                        currentUserEmail,
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF888888)
-                                    )
+                                    Text(currentUserName, fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold, color = Color(0xFF1a1a2e))
+                                    Text(currentUserEmail, fontSize = 11.sp, color = Color(0xFF888888))
                                 }
                             }
                         }
@@ -228,7 +193,7 @@ fun SettingsScreen(
             }
 
             // ══════════════════════════════════════
-            // PREFERENCES SECTION
+            // PREFERENCES
             // ══════════════════════════════════════
             item {
                 Column(
@@ -238,25 +203,21 @@ fun SettingsScreen(
                 ) {
                     Text(
                         "PREFERENCES",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
-                        letterSpacing = 0.6.sp,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = Color(0xFFAAAAAA), letterSpacing = 0.6.sp,
                         modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                     )
-
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = Color.White,
                         border = BorderStroke(1.5.dp, Color(0xFFE8E8E4))
                     ) {
                         Column {
-                            // Dark Mode Toggle
                             SettingRow(
                                 icon = if (uiState.isDarkMode) "🌙" else "☀️",
                                 title = "Dark Mode",
                                 subtitle = if (uiState.isDarkMode) "Enabled" else "Disabled",
-                                onClick = { /* TODO: Toggle dark mode */ },
+                                onClick = {},
                                 showDivider = true,
                                 trailingContent = {
                                     Switch(
@@ -269,13 +230,11 @@ fun SettingsScreen(
                                     )
                                 }
                             )
-
-                            // Notifications Toggle
                             SettingRow(
                                 icon = "🔔",
                                 title = "Notifications",
                                 subtitle = if (uiState.notificationsEnabled) "Enabled" else "Disabled",
-                                onClick = { /* TODO: Toggle notifications */ },
+                                onClick = {},
                                 showDivider = false,
                                 trailingContent = {
                                     Switch(
@@ -294,7 +253,7 @@ fun SettingsScreen(
             }
 
             // ══════════════════════════════════════
-            // ABOUT SECTION
+            // ABOUT
             // ══════════════════════════════════════
             item {
                 Column(
@@ -304,13 +263,10 @@ fun SettingsScreen(
                 ) {
                     Text(
                         "ABOUT",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
-                        letterSpacing = 0.6.sp,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = Color(0xFFAAAAAA), letterSpacing = 0.6.sp,
                         modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                     )
-
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = Color.White,
@@ -318,30 +274,16 @@ fun SettingsScreen(
                     ) {
                         Column {
                             SettingRow(
-                                icon = "ℹ️",
-                                title = "App Version",
-                                subtitle = "Version 1.0.0",
-                                onClick = { /* No action */ },
-                                showDivider = true,
-                                trailingContent = null
+                                icon = "ℹ️", title = "App Version", subtitle = "Version 1.0.0",
+                                onClick = {}, showDivider = true, trailingContent = null
                             )
-
                             SettingRow(
-                                icon = "📖",
-                                title = "Terms of Service",
-                                subtitle = "View our terms",
-                                onClick = { /* TODO: Open terms */ },
-                                showDivider = true,
-                                trailingContent = { ChevronRight() }
+                                icon = "📖", title = "Terms of Service", subtitle = "View our terms",
+                                onClick = {}, showDivider = true, trailingContent = { ChevronRight() }
                             )
-
                             SettingRow(
-                                icon = "🔒",
-                                title = "Privacy Policy",
-                                subtitle = "How we protect your data",
-                                onClick = { /* TODO: Open privacy */ },
-                                showDivider = false,
-                                trailingContent = { ChevronRight() }
+                                icon = "🔒", title = "Privacy Policy", subtitle = "How we protect your data",
+                                onClick = {}, showDivider = false, trailingContent = { ChevronRight() }
                             )
                         }
                     }
@@ -349,7 +291,7 @@ fun SettingsScreen(
             }
 
             // ══════════════════════════════════════
-            // SUPPORT SECTION
+            // SUPPORT
             // ══════════════════════════════════════
             item {
                 Column(
@@ -359,13 +301,10 @@ fun SettingsScreen(
                 ) {
                     Text(
                         "SUPPORT",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
-                        letterSpacing = 0.6.sp,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = Color(0xFFAAAAAA), letterSpacing = 0.6.sp,
                         modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                     )
-
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = Color.White,
@@ -373,30 +312,19 @@ fun SettingsScreen(
                     ) {
                         Column {
                             SettingRow(
-                                icon = "❓",
-                                title = "Help & FAQ",
+                                icon = "❓", title = "Help & FAQ",
                                 subtitle = "Get answers to common questions",
-                                onClick = { /* TODO: Open help */ },
-                                showDivider = true,
-                                trailingContent = { ChevronRight() }
+                                onClick = {}, showDivider = true, trailingContent = { ChevronRight() }
                             )
-
                             SettingRow(
-                                icon = "💬",
-                                title = "Contact Us",
+                                icon = "💬", title = "Contact Us",
                                 subtitle = "campusfind@nwssu.edu.ph",
-                                onClick = { /* TODO: Email support */ },
-                                showDivider = true,
-                                trailingContent = { ChevronRight() }
+                                onClick = {}, showDivider = true, trailingContent = { ChevronRight() }
                             )
-
                             SettingRow(
-                                icon = "⭐",
-                                title = "Rate CampusFind",
+                                icon = "⭐", title = "Rate CampusFind",
                                 subtitle = "Share your feedback",
-                                onClick = { /* TODO: Open store */ },
-                                showDivider = false,
-                                trailingContent = { ChevronRight() }
+                                onClick = {}, showDivider = false, trailingContent = { ChevronRight() }
                             )
                         }
                     }
@@ -404,7 +332,7 @@ fun SettingsScreen(
             }
 
             // ══════════════════════════════════════
-            // DANGER ZONE
+            // LOGOUT
             // ══════════════════════════════════════
             item {
                 Column(
@@ -414,13 +342,10 @@ fun SettingsScreen(
                 ) {
                     Text(
                         "ACCOUNT",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
-                        letterSpacing = 0.6.sp,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = Color(0xFFAAAAAA), letterSpacing = 0.6.sp,
                         modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
                     )
-
                     Surface(
                         onClick = { showLogoutDialog = true },
                         shape = RoundedCornerShape(14.dp),
@@ -428,9 +353,7 @@ fun SettingsScreen(
                         border = BorderStroke(1.5.dp, Color(0xFFFFDEDC))
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -442,52 +365,30 @@ fun SettingsScreen(
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🚪", fontSize = 18.sp)
-                                }
+                                ) { Text("🚪", fontSize = 18.sp) }
                             }
-
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Logout",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ModernError
-                                )
-                                Text(
-                                    "Sign out of your account",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF888888)
-                                )
+                                Text("Logout", fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold, color = ModernError)
+                                Text("Sign out of your account", fontSize = 11.sp, color = Color(0xFF888888))
                             }
                         }
                     }
                 }
             }
 
-            // Footer info
+            // Footer
             item {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 40.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 40.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        "CampusFind for NWSSU",
-                        fontSize = 11.sp,
-                        color = Color(0xFFAAAAAA)
-                    )
-                    Text(
-                        "Made with 💜 by Team CampusFind",
-                        fontSize = 10.sp,
-                        color = Color(0xFFCCCCCC)
-                    )
+                    Text("CampusFind for NWSSU", fontSize = 11.sp, color = Color(0xFFAAAAAA))
+                    Text("Made with 💜 by Team CampusFind", fontSize = 10.sp, color = Color(0xFFCCCCCC))
                 }
             }
         }
 
-        // Logout Confirmation Dialog
         if (showLogoutDialog) {
             LogoutDialog(
                 onDismiss = { showLogoutDialog = false },
@@ -502,16 +403,13 @@ fun SettingsScreen(
 }
 
 // ══════════════════════════════════════
-// COMPOSABLE COMPONENTS
+// COMPONENTS
 // ══════════════════════════════════════
 
 @Composable
 private fun SettingRow(
-    icon: String,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    showDivider: Boolean,
+    icon: String, title: String, subtitle: String,
+    onClick: () -> Unit, showDivider: Boolean,
     trailingContent: (@Composable () -> Unit)?
 ) {
     Column {
@@ -528,33 +426,16 @@ private fun SettingRow(
                 shape = CircleShape,
                 color = Color(0xFFF4F4F0)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(icon, fontSize = 18.sp)
                 }
             }
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1a1a2e)
-                )
-                Text(
-                    subtitle,
-                    fontSize = 11.sp,
-                    color = Color(0xFF888888)
-                )
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1a1a2e))
+                Text(subtitle, fontSize = 11.sp, color = Color(0xFF888888))
             }
-
-            if (trailingContent != null) {
-                trailingContent()
-            }
+            trailingContent?.invoke()
         }
-
         if (showDivider) {
             Divider(
                 modifier = Modifier.padding(start = 66.dp),
@@ -567,93 +448,44 @@ private fun SettingRow(
 
 @Composable
 private fun ChevronRight() {
-    Text(
-        "›",
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFFCCCCCC)
-    )
+    Text("›", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFCCCCCC))
 }
 
 @Composable
-private fun LogoutDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
+private fun LogoutDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                // Icon
+        Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
+            Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
                 Box(
                     modifier = Modifier
                         .size(60.dp)
-                        .background(
-                            Color(0xFFFFEBEE),
-                            CircleShape
-                        )
+                        .background(Color(0xFFFFEBEE), CircleShape)
                         .align(Alignment.CenterHorizontally),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text("🚪", fontSize = 28.sp)
-                }
+                ) { Text("🚪", fontSize = 28.sp) }
 
                 Spacer(Modifier.height(16.dp))
-
-                // Title
-                Text(
-                    "Logout?",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1a1a2e),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
+                Text("Logout?", fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1a1a2e), modifier = Modifier.align(Alignment.CenterHorizontally))
                 Spacer(Modifier.height(8.dp))
-
-                // Message
-                Text(
-                    "Are you sure you want to sign out of your account?",
-                    fontSize = 13.sp,
-                    color = Color(0xFF666666),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
+                Text("Are you sure you want to sign out of your account?",
+                    fontSize = 13.sp, color = Color(0xFF666666),
+                    modifier = Modifier.align(Alignment.CenterHorizontally))
                 Spacer(Modifier.height(24.dp))
 
-                // Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
+                        onClick = onDismiss, modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.5.dp, Color(0xFFE8E8E4)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF666666)
-                        )
-                    ) {
-                        Text("Cancel", fontSize = 13.sp)
-                    }
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF666666))
+                    ) { Text("Cancel", fontSize = 13.sp) }
 
                     Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
+                        onClick = onConfirm, modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ModernError
-                        )
-                    ) {
-                        Text("Logout", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
+                        colors = ButtonDefaults.buttonColors(containerColor = ModernError)
+                    ) { Text("Logout", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                 }
             }
         }
