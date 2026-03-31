@@ -18,17 +18,23 @@ class SettingsViewModel @Inject constructor(
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        // Read persisted dark mode on init so the toggle reflects reality on screen open
+        SettingsUiState(isDarkMode = sessionManager.isDarkMode)
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     fun toggleDarkMode() {
-        _uiState.update { it.copy(isDarkMode = !it.isDarkMode) }
-        // TODO: Save preference to SharedPreferences
+        val newValue = !_uiState.value.isDarkMode
+        // 1. Persist to SharedPreferences so it survives app restart
+        sessionManager.setDarkMode(newValue)
+        // 2. Update UI state so the switch reacts immediately
+        _uiState.update { it.copy(isDarkMode = newValue) }
     }
 
     fun toggleNotifications() {
         _uiState.update { it.copy(notificationsEnabled = !it.notificationsEnabled) }
-        // TODO: Save preference to SharedPreferences
+        // TODO: Persist notifications preference in Phase 2
     }
 
     fun logout() {

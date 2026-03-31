@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,18 +52,16 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val colors = LocalAppColors.current
     var searchQuery by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     val filteredItems = remember(uiState.items, searchQuery) {
-        if (searchQuery.isBlank()) {
-            uiState.items
-        } else {
-            uiState.items.filter { item ->
-                item.title.contains(searchQuery, ignoreCase = true) ||
-                        item.description.contains(searchQuery, ignoreCase = true)
-            }
+        if (searchQuery.isBlank()) uiState.items
+        else uiState.items.filter { item ->
+            item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -70,126 +69,75 @@ fun HomeScreen(
         drawerState = drawerState,
         drawerContent = {
             NavigationDrawer(
-                currentUserName = currentUserName,
-                currentUserEmail = currentUserEmail,
-                onNavigateToProfile = onNavigateToProfile,
+                currentUserName      = currentUserName,
+                currentUserEmail     = currentUserEmail,
+                onNavigateToProfile  = onNavigateToProfile,
                 onNavigateToSmartHistory = onNavigateToSmartHistory,
                 onNavigateToSettings = onNavigateToSettings,
-                onLogout = onLogout,
-                onDismiss = { scope.launch { drawerState.close() } }
+                onLogout             = onLogout,
+                onDismiss            = { scope.launch { drawerState.close() } }
             )
         }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFf4f4f0))
+                .background(colors.screenBg)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 GradientHero(
-                    itemCount = filteredItems.size,
-                    selectedFilter = uiState.selectedFilter,
-                    lostCount = filteredItems.count { it.status == ItemStatus.LOST },
-                    foundCount = filteredItems.count { it.status == ItemStatus.FOUND },
-                    searchQuery = searchQuery,
+                    itemCount            = filteredItems.size,
+                    selectedFilter       = uiState.selectedFilter,
+                    lostCount            = filteredItems.count { it.status == ItemStatus.LOST },
+                    foundCount           = filteredItems.count { it.status == ItemStatus.FOUND },
+                    searchQuery          = searchQuery,
                     onSearchQueryChanged = { searchQuery = it },
-                    onFilterChanged = { viewModel.onFilterChanged(it) },
-                    onOpenDrawer = { scope.launch { drawerState.open() } },
-                    onNavigateToProfile = onNavigateToProfile
+                    onFilterChanged      = { viewModel.onFilterChanged(it) },
+                    onOpenDrawer         = { scope.launch { drawerState.open() } },
+                    onNavigateToProfile  = onNavigateToProfile
                 )
 
                 when {
                     uiState.isLoading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = ModernAccent)
                         }
                     }
-
                     uiState.error != null -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = uiState.error ?: "Unknown error",
-                                color = ModernError,
-                                fontSize = 14.sp
-                            )
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(uiState.error ?: "Unknown error", color = ModernError, fontSize = 14.sp)
                         }
                     }
-
                     uiState.items.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text("📭", fontSize = 48.sp)
-                                Text(
-                                    "No items found",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF888888)
-                                )
-                                Text(
-                                    "Be the first to report!",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFaaaaaa)
-                                )
-                            }
-                        }
+                        EmptyState(
+                            icon    = "📭",
+                            title   = "No items found",
+                            subtitle = "Be the first to report!",
+                            colors  = colors
+                        )
                     }
-
                     filteredItems.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text("🔍", fontSize = 48.sp)
-                                Text(
-                                    "No matches found",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF888888)
-                                )
-                                Text(
-                                    "Try a different search",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFaaaaaa)
-                                )
-                            }
-                        }
+                        EmptyState(
+                            icon    = "🔍",
+                            title   = "No matches found",
+                            subtitle = "Try a different search",
+                            colors  = colors
+                        )
                     }
-
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
-                                start = 14.dp,
-                                end = 14.dp,
-                                top = 12.dp,
-                                bottom = 80.dp
+                                start = 14.dp, end = 14.dp,
+                                top = 14.dp, bottom = 80.dp
                             ),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            items(
-                                items = filteredItems,
-                                key = { it.id }
-                            ) { item ->
+                            items(items = filteredItems, key = { it.id }) { item ->
                                 ModernItemCard(
-                                    item = item,
+                                    item         = item,
                                     reporterName = uiState.reporterNames[item.reportedBy] ?: "Loading...",
-                                    onClick = { onNavigateToDetail(item.id) }
+                                    onClick      = { onNavigateToDetail(item.id) }
                                 )
                             }
                         }
@@ -197,38 +145,55 @@ fun HomeScreen(
                 }
             }
 
-            FloatingActionButton(
-                onClick = onNavigateToAddItem,
+            // FAB
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = 20.dp, end = 16.dp)
-                    .size(56.dp),
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(ModernAccent, Color(0xFF5246d5))
-                            ),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "+",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light,
-                        color = Color.White
+                    .padding(bottom = 24.dp, end = 18.dp)
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(ModernAccent, Color(0xFF5246d5)))
                     )
+                    .clip(CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    onClick = onNavigateToAddItem,
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color.Transparent,
+                    shape = CircleShape
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("+", fontSize = 26.sp, fontWeight = FontWeight.Light, color = Color.White)
+                    }
                 }
             }
         }
     }
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// EMPTY STATE
+// ──────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun EmptyState(icon: String, title: String, subtitle: String, colors: AppColors) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(icon, fontSize = 48.sp)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.textMuted)
+            Text(subtitle, fontSize = 12.sp, color = colors.textMuted)
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// GRADIENT HERO — always dark, unchanged between light and dark mode
+// ──────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun GradientHero(
@@ -246,100 +211,46 @@ fun GradientHero(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFF1a1228),
-                        Color(0xFF2e1f48),
-                        Color(0xFF1a2a20)
-                    )
+                Brush.linearGradient(
+                    colors = listOf(Color(0xFF1a1228), Color(0xFF2e1f48), Color(0xFF1a2a20))
                 )
             )
     ) {
-        // Ambient blur orbs (layered for blur effect)
-        // Purple orb (top-right)
-        Box(
-            modifier = Modifier
-                .size(160.dp)
-                .offset(x = (-30).dp, y = (-30).dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.08f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(140.dp)
-                .offset(x = (-20).dp, y = (-20).dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.15f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .offset(x = (-10).dp, y = (-10).dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.22f),
-                    shape = CircleShape
-                )
-        )
-
-        // Teal orb (bottom-left)
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .offset(x = (-20).dp, y = 20.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.08f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .offset(x = (-10).dp, y = 10.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.15f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .offset(x = 0.dp, y = 0.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.2f),
-                    shape = CircleShape
-                )
-        )
+        // Ambient orbs
+        Box(modifier = Modifier.size(160.dp).offset(x = (-30).dp, y = (-30).dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.08f), CircleShape))
+        Box(modifier = Modifier.size(140.dp).offset(x = (-20).dp, y = (-20).dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.size(120.dp).offset(x = (-10).dp, y = (-10).dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.22f), CircleShape))
+        Box(modifier = Modifier.size(120.dp).offset(x = (-20).dp, y = 20.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.08f), CircleShape))
+        Box(modifier = Modifier.size(100.dp).offset(x = (-10).dp, y = 10.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.size(80.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.2f), CircleShape))
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp, top = 8.dp)
+                .padding(bottom = 16.dp)
         ) {
-            // Top navigation bar - ✅ FIXED: Added top = 36.dp to clear status bar
+            // Status bar spacer — pushes content below system status bar
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(Modifier.height(8.dp))
+
+            // Top nav row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 14.dp, top = 36.dp, end = 14.dp, bottom = 8.dp),  // ✅ CHANGED: split vertical into top + bottom
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Burger menu
                 Surface(
-                    onClick = onOpenDrawer,
-                    modifier = Modifier.size(36.dp),
-                    shape = CircleShape,
+                    onClick = onOpenDrawer, modifier = Modifier.size(36.dp), shape = CircleShape,
                     color = Color.White.copy(alpha = 0.12f),
-                    border = BorderStroke(width = 1.dp, color = Color.White.copy(alpha = 0.18f))
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text("☰", fontSize = 15.sp, color = Color.White)
@@ -348,135 +259,88 @@ fun GradientHero(
 
                 Spacer(Modifier.weight(1f))
 
-                // Right side icons group
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Notifications
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        onClick = { /* TODO: Phase 2 */ },
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape,
+                        onClick = {}, modifier = Modifier.size(36.dp), shape = CircleShape,
                         color = Color.White.copy(alpha = 0.12f),
-                        border = BorderStroke(width = 1.dp, color = Color.White.copy(alpha = 0.18f))
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text("🔔", fontSize = 15.sp, color = Color.White)
                         }
                     }
-
-                    // Profile
-                    Surface(
-                        onClick = onNavigateToProfile,
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape,
-                        color = Color.Transparent
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF5246d5)))),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(ModernAccent, Color(0xFF5246d5))
-                                    ),
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            onClick = onNavigateToProfile,
+                            modifier = Modifier.fillMaxSize(),
+                            color = Color.Transparent,
+                            shape = CircleShape
                         ) {
-                            Text("👤", fontSize = 14.sp, color = Color.White)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("👤", fontSize = 14.sp, color = Color.White)
+                            }
                         }
                     }
                 }
             }
 
-            // Title + Subtitle
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
+            // Title
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
                     text = buildAnnotatedString {
                         append("CampusFind")
-                        withStyle(SpanStyle(color = ModernAccent)) {
-                            append("+")
-                        }
+                        withStyle(SpanStyle(color = ModernAccent)) { append("+") }
                     },
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White,
                     style = LocalTextStyle.current.copy(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.4f),
-                            offset = Offset(0f, 2f),
-                            blurRadius = 12f
-                        )
+                        shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 2f), 12f)
                     )
                 )
-
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text = "📍 $itemCount items lost today",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.6f)
-                )
+                Spacer(Modifier.height(2.dp))
+                Text("📍 $itemCount items reported on campus",
+                    fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
             }
 
             // Search bar
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                 shape = RoundedCornerShape(18.dp),
                 color = Color.White.copy(alpha = 0.14f),
-                border = BorderStroke(width = 1.5.dp, color = Color.White.copy(alpha = 0.22f))
+                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.22f))
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text("🔍", fontSize = 15.sp, color = Color.White.copy(alpha = 0.55f))
-
                     androidx.compose.foundation.text.BasicTextField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChanged,
+                        value = searchQuery, onValueChange = onSearchQueryChanged,
                         modifier = Modifier.weight(1f),
-                        textStyle = LocalTextStyle.current.copy(
-                            fontSize = 13.sp,
-                            color = Color.White
-                        ),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = Color.White),
                         singleLine = true,
-                        decorationBox = { innerTextField ->
+                        decorationBox = { inner ->
                             if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = "Search lost items...",
-                                    fontSize = 13.sp,
-                                    color = Color.White.copy(alpha = 0.5f)
-                                )
+                                Text("Search lost items...", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
                             }
-                            innerTextField()
+                            inner()
                         }
                     )
-
                     if (searchQuery.isNotEmpty()) {
                         Surface(
-                            onClick = { onSearchQueryChanged("") },
-                            modifier = Modifier.size(28.dp),
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.15f)
+                            onClick = { onSearchQueryChanged("") }, modifier = Modifier.size(28.dp),
+                            shape = CircleShape, color = Color.White.copy(alpha = 0.15f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "✕",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
+                                Text("✕", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }
@@ -487,66 +351,30 @@ fun GradientHero(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                FilterPill(
-                    text = "LOST",
-                    count = lostCount,
-                    isActive = selectedFilter == ItemStatus.LOST,
-                    activeColor = ModernLost,
-                    onClick = {
-                        onFilterChanged(if (selectedFilter == ItemStatus.LOST) null else ItemStatus.LOST)
-                    }
-                )
-
-                FilterPill(
-                    text = "FOUND",
-                    count = foundCount,
-                    isActive = selectedFilter == ItemStatus.FOUND,
-                    activeColor = ModernFound,
-                    onClick = {
-                        onFilterChanged(if (selectedFilter == ItemStatus.FOUND) null else ItemStatus.FOUND)
-                    }
-                )
-
-                FilterPill(
-                    text = "ALL",
-                    count = null,
-                    isActive = selectedFilter == null,
-                    activeColor = Color.White,
-                    onClick = { onFilterChanged(null) }
-                )
+                FilterPill("LOST", lostCount, selectedFilter == ItemStatus.LOST, ModernLost) {
+                    onFilterChanged(if (selectedFilter == ItemStatus.LOST) null else ItemStatus.LOST)
+                }
+                FilterPill("FOUND", foundCount, selectedFilter == ItemStatus.FOUND, ModernFound) {
+                    onFilterChanged(if (selectedFilter == ItemStatus.FOUND) null else ItemStatus.FOUND)
+                }
+                FilterPill("ALL", null, selectedFilter == null, Color.White) {
+                    onFilterChanged(null)
+                }
             }
         }
     }
 }
 
 @Composable
-fun FilterPill(
-    text: String,
-    count: Int?,
-    isActive: Boolean,
-    activeColor: Color,
-    onClick: () -> Unit
-) {
+fun FilterPill(text: String, count: Int?, isActive: Boolean, activeColor: Color, onClick: () -> Unit) {
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isActive) {
-            activeColor.copy(alpha = 0.3f)
-        } else {
-            Color.White.copy(alpha = 0.12f)
-        },
-        border = BorderStroke(
-            width = 1.5.dp,
-            color = if (isActive) {
-                activeColor.copy(alpha = 0.6f)
-            } else {
-                Color.White.copy(alpha = 0.2f)
-            }
-        )
+        onClick = onClick, shape = RoundedCornerShape(20.dp),
+        color = if (isActive) activeColor.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.12f),
+        border = BorderStroke(1.5.dp, if (isActive) activeColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -554,30 +382,21 @@ fun FilterPill(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "● $text",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = if (isActive) {
-                    when (text) {
-                        "LOST" -> Color(0xFFff8099)
-                        "FOUND" -> Color(0xFF5fead4)
-                        else -> Color.White
-                    }
-                } else {
-                    Color.White.copy(alpha = 0.7f)
-                }
+                "● $text", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                color = if (isActive) when (text) {
+                    "LOST" -> Color(0xFFff8099)
+                    "FOUND" -> Color(0xFF5fead4)
+                    else -> Color.White
+                } else Color.White.copy(alpha = 0.7f)
             )
-
             if (count != null) {
                 Text(
-                    text = count.toString(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    count.toString(), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
                     color = if (isActive) Color.White else Color.White.copy(alpha = 0.6f),
                     modifier = Modifier
                         .background(
-                            color = Color.White.copy(alpha = if (isActive) 0.25f else 0.15f),
-                            shape = RoundedCornerShape(8.dp)
+                            Color.White.copy(alpha = if (isActive) 0.25f else 0.15f),
+                            RoundedCornerShape(8.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 1.dp)
                 )
@@ -586,97 +405,94 @@ fun FilterPill(
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// ITEM CARD — premium dark/light adaptive design
+// ──────────────────────────────────────────────────────────────────────────
+
 @Composable
-fun ModernItemCard(
-    item: LostItem,
-    reporterName: String,
-    onClick: () -> Unit
-) {
+fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
+    val colors = LocalAppColors.current
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(width = 1.5.dp, color = Color(0xFFebebeb)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.cardBg),
+        border = BorderStroke(
+            width = if (colors.isDark) 1.dp else 1.5.dp,
+            color = colors.cardBorder
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (colors.isDark) 0.dp else 3.dp
+        )
     ) {
         Column {
-            // ✅ PHOTO HERO - Loads from internal File for instant offline display
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            ) {
-                // Check if photo exists
-                if (item.photoUri != null && item.photoUri.isNotBlank()) {
-                    // ✅ LOAD FROM FILE PATH (instant, offline-first)
-                    val photoFile = remember(item.photoUri) { File(item.photoUri) }
+            // ── Photo section ──────────────────────────────────────────────
+            Box(modifier = Modifier.fillMaxWidth().height(190.dp)) {
+                val hasPhoto = !item.photoUri.isNullOrBlank()
+                val photoFile = if (hasPhoto) remember(item.photoUri) { File(item.photoUri!!) } else null
 
-                    if (photoFile.exists()) {
-                        // Photo exists - load it instantly
-                        Image(
-                            painter = rememberAsyncImagePainter(photoFile),
-                            contentDescription = "Item photo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-
-                        // Dark overlay for badge readability
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.2f))
-                        )
-                    } else {
-                        // File doesn't exist - show gradient placeholder
-                        GradientPlaceholder(modifier = Modifier.fillMaxSize())
-                    }
+                if (hasPhoto && photoFile?.exists() == true) {
+                    Image(
+                        painter = rememberAsyncImagePainter(photoFile),
+                        contentDescription = "Item photo",
+                        modifier = Modifier.fillMaxSize().clip(
+                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                        ),
+                        contentScale = ContentScale.Crop
+                    )
+                    // gradient overlay for text readability
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                                )
+                            )
+                    )
                 } else {
-                    // No photo - show gradient placeholder
-                    GradientPlaceholder(modifier = Modifier.fillMaxSize())
+                    GradientPlaceholder(
+                        modifier = Modifier.fillMaxSize().clip(
+                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                        )
+                    )
                 }
 
-                // Status badge overlay (always on top)
+                // Status badge
                 Surface(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .align(Alignment.TopStart),
+                    modifier = Modifier.padding(10.dp).align(Alignment.TopStart),
                     shape = RoundedCornerShape(10.dp),
                     color = when (item.status) {
-                        ItemStatus.LOST -> ModernLost.copy(alpha = 0.25f)
-                        ItemStatus.FOUND -> ModernFound.copy(alpha = 0.25f)
+                        ItemStatus.LOST  -> ModernLost.copy(alpha = 0.22f)
+                        ItemStatus.FOUND -> ModernFound.copy(alpha = 0.22f)
                     },
-                    border = BorderStroke(
-                        width = 1.5.dp,
-                        color = when (item.status) {
-                            ItemStatus.LOST -> ModernLost.copy(alpha = 0.6f)
-                            ItemStatus.FOUND -> ModernFound.copy(alpha = 0.6f)
-                        }
-                    )
+                    border = BorderStroke(1.5.dp, when (item.status) {
+                        ItemStatus.LOST  -> ModernLost.copy(alpha = 0.7f)
+                        ItemStatus.FOUND -> ModernFound.copy(alpha = 0.7f)
+                    })
                 ) {
                     Text(
-                        text = "● ${item.status.name}",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        "● ${item.status.name}",
+                        fontSize = 9.sp, fontWeight = FontWeight.ExtraBold,
                         color = when (item.status) {
-                            ItemStatus.LOST -> Color(0xFFff8099)
-                            ItemStatus.FOUND -> ModernFound
+                            ItemStatus.LOST  -> Color(0xFFff8099)
+                            ItemStatus.FOUND -> Color(0xFF5fead4)
                         },
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            // Card content
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
+            // ── Content section ────────────────────────────────────────────
+            Column(modifier = Modifier.padding(14.dp)) {
+
                 // Title
                 Text(
-                    text = item.title,
-                    fontSize = 14.sp,
+                    item.title,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1a1a2e),
+                    color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -685,55 +501,54 @@ fun ModernItemCard(
 
                 // Description
                 Text(
-                    text = item.description,
-                    fontSize = 11.sp,
-                    color = Color(0xFF666666),
-                    lineHeight = 16.sp,
+                    item.description,
+                    fontSize = 12.sp,
+                    color = colors.textSecondary,
+                    lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
 
-                // Meta pills
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // ✅ DISPLAY ACTUAL LOCATION from database
-                    if (item.location != null && item.location.isNotBlank()) {
-                        MetaPill(icon = "📍", text = item.location)
-                    } else {
-                        MetaPill(icon = "📍", text = "Campus")
-                    }
-                    MetaPill(icon = "🕐", text = formatTimestamp(item.reportedAt))
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // Reporter info
+                // Meta row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Location + time pills
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        MetaPill(
+                            icon = "📍",
+                            text = if (!item.location.isNullOrBlank()) item.location else "Campus"
+                        )
+                        MetaPill(icon = "🕐", text = formatTimestamp(item.reportedAt))
+                    }
+
+                    // Reporter
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(20.dp)
                                 .background(
-                                    color = Color(0xFFe8e8e4),
-                                    shape = RoundedCornerShape(7.dp)
+                                    if (colors.isDark) ModernAccent.copy(alpha = 0.2f)
+                                    else colors.avatarBg,
+                                    CircleShape
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("👤", fontSize = 11.sp)
+                            Text("👤", fontSize = 10.sp)
                         }
-
                         Text(
-                            text = reporterName,
+                            reporterName,
                             fontSize = 10.sp,
-                            color = Color(0xFF888888)
+                            color = colors.textMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -742,113 +557,54 @@ fun ModernItemCard(
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// GRADIENT PLACEHOLDER
+// ──────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun GradientPlaceholder(modifier: Modifier = Modifier) {
     Box(modifier = modifier) {
-        // Gradient background
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF2a1838),
-                            Color(0xFF3e2f58),
-                            Color(0xFF2a3830)
-                        )
-                    )
-                )
-        )
-
-        // Ambient orbs
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .offset(x = 20.dp, y = (-20).dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.08f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .offset(x = 10.dp, y = (-10).dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.15f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .align(Alignment.TopEnd)
-                .background(
-                    color = ModernAccent.copy(alpha = 0.2f),
-                    shape = CircleShape
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .offset(x = 20.dp, y = 20.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.06f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .offset(x = 10.dp, y = 10.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.12f),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .align(Alignment.BottomStart)
-                .background(
-                    color = ModernFound.copy(alpha = 0.15f),
-                    shape = CircleShape
-                )
-        )
-
-        // Photo placeholder icon
-        Box(
-            modifier = Modifier.align(Alignment.Center),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "📷",
-                fontSize = 48.sp,
-                color = Color.White.copy(alpha = 0.3f)
-            )
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(Color(0xFF2a1838), Color(0xFF3e2f58), Color(0xFF2a3830)))
+        ))
+        // Orbs
+        Box(modifier = Modifier.size(100.dp).offset(x = 20.dp, y = (-20).dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.08f), CircleShape))
+        Box(modifier = Modifier.size(80.dp).offset(x = 10.dp, y = (-10).dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.size(60.dp)
+            .align(Alignment.TopEnd).background(ModernAccent.copy(alpha = 0.2f), CircleShape))
+        Box(modifier = Modifier.size(80.dp).offset(x = 20.dp, y = 20.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.06f), CircleShape))
+        Box(modifier = Modifier.size(60.dp).offset(x = 10.dp, y = 10.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.12f), CircleShape))
+        Box(modifier = Modifier.size(40.dp)
+            .align(Alignment.BottomStart).background(ModernFound.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.align(Alignment.Center), contentAlignment = Alignment.Center) {
+            Text("📷", fontSize = 44.sp, color = Color.White.copy(alpha = 0.25f))
         }
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// META PILL
+// ──────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun MetaPill(icon: String, text: String) {
+    val colors = LocalAppColors.current
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF9f9f6),
-        border = BorderStroke(width = 1.dp, color = Color(0xFFe8e8e4))
+        color = colors.pillBg,
+        border = BorderStroke(1.dp, colors.pillBorder)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(icon, fontSize = 10.sp)
-            Text(text, fontSize = 10.sp, color = Color(0xFF666666))
+            Text(text, fontSize = 10.sp, color = colors.textSecondary)
         }
     }
 }
@@ -858,11 +614,10 @@ fun formatTimestamp(millis: Long): String {
     val diff = now - millis
     val hours = TimeUnit.MILLISECONDS.toHours(diff)
     val days = TimeUnit.MILLISECONDS.toDays(diff)
-
     return when {
-        hours < 1 -> "Just now"
+        hours < 1  -> "Just now"
         hours < 24 -> "$hours hour${if (hours > 1) "s" else ""} ago"
-        days < 7 -> "$days day${if (days > 1) "s" else ""} ago"
-        else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(millis))
+        days < 7   -> "$days day${if (days > 1) "s" else ""} ago"
+        else       -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(millis))
     }
 }
