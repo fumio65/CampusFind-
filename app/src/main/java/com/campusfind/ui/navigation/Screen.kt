@@ -3,18 +3,19 @@ package com.campusfind.ui.navigation
 /**
  * Navigation routes for CampusFind+
  *
- * UPDATED: Added SmartHistory route + Phase 6 Claims
+ * UPDATED: Added Notifications route
  */
 sealed class Screen(val route: String) {
 
     // Auth & Onboarding
-    object Onboarding : Screen("onboarding")
-    object Login : Screen("login")
-    object Register : Screen("register")
+    object Onboarding    : Screen("onboarding")
+    object Login         : Screen("login")
+    object Register      : Screen("register")
 
     // Main App
-    object Home : Screen("home")
-    object AddItem : Screen("add_item")
+    object Home          : Screen("home")
+    object AddItem       : Screen("add_item")
+    object Notifications : Screen("notifications")   // ← NEW
 
     object Detail : Screen("detail/{itemId}") {
         fun createRoute(itemId: String) = "detail/$itemId"
@@ -25,9 +26,9 @@ sealed class Screen(val route: String) {
     }
 
     // User
-    object Profile : Screen("profile")
-    object Settings : Screen("settings")
-    object SmartHistory : Screen("smart_history")  // ✅ NEW: Smart History
+    object Profile      : Screen("profile")
+    object Settings     : Screen("settings")
+    object SmartHistory : Screen("smart_history")
 
     // Claims (Phase 6)
     object SubmitClaim : Screen("submit_claim/{itemId}") {

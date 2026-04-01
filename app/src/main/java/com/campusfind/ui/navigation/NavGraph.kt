@@ -13,40 +13,32 @@ import com.campusfind.ui.screens.detail.DetailScreen
 import com.campusfind.ui.screens.edititem.EditItemScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
+import com.campusfind.ui.screens.notifications.NotificationScreen
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
 import com.campusfind.ui.screens.profile.UserProfileScreen
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
-import com.campusfind.ui.screens.smarthistory.SmartHistoryScreen  // ✅ NEW
+import com.campusfind.ui.screens.smarthistory.SmartHistoryScreen
 import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen
 import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen
 
-/**
- * Navigation graph with modern HomeScreen support
- *
- * UPDATED: Added Smart History screen
- */
 @Composable
 fun CampusFindNavGraph(
     navController: NavHostController,
     sessionManager: SessionManager
 ) {
-    // Determine start destination based on state
     val startDestination = remember(
         sessionManager.hasCompletedOnboarding,
         sessionManager.isLoggedIn
     ) {
         when {
             !sessionManager.hasCompletedOnboarding -> Screen.Onboarding.route
-            sessionManager.isLoggedIn -> Screen.Home.route
-            else -> Screen.Login.route
+            sessionManager.isLoggedIn              -> Screen.Home.route
+            else                                   -> Screen.Login.route
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
-    ) {
+    NavHost(navController = navController, startDestination = startDestination) {
 
         // ── Onboarding ───────────────────────────────────────────────────────
 
@@ -61,13 +53,11 @@ fun CampusFindNavGraph(
             )
         }
 
-        // ── Auth Routes ──────────────────────────────────────────────────────
+        // ── Auth ─────────────────────────────────────────────────────────────
 
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToRegister = {
-                    navController.navigate(Screen.Register.route)
-                },
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                 onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
@@ -79,9 +69,7 @@ fun CampusFindNavGraph(
 
         composable(Screen.Register.route) {
             RegisterScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
+                onNavigateBack = { navController.popBackStack() },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
@@ -91,26 +79,16 @@ fun CampusFindNavGraph(
             )
         }
 
-        // ── Main App Routes ──────────────────────────────────────────────────
+        // ── Home ─────────────────────────────────────────────────────────────
 
         composable(Screen.Home.route) {
             HomeScreen(
-                onNavigateToAddItem = {
-                    navController.navigate(Screen.AddItem.route)
-                },
-                onNavigateToDetail = { itemId ->
-                    navController.navigate(Screen.Detail.createRoute(itemId))
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(Screen.Profile.route)
-                },
-                onNavigateToSmartHistory = {
-                    // ✅ ENABLED: Navigate to Smart History
-                    navController.navigate(Screen.SmartHistory.route)
-                },
+                onNavigateToAddItem      = { navController.navigate(Screen.AddItem.route) },
+                onNavigateToDetail       = { navController.navigate(Screen.Detail.createRoute(it)) },
+                onNavigateToSettings     = { navController.navigate(Screen.Settings.route) },
+                onNavigateToProfile      = { navController.navigate(Screen.Profile.route) },
+                onNavigateToSmartHistory = { navController.navigate(Screen.SmartHistory.route) },
+                onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                 onLogout = {
                     sessionManager.clearSession()
                     navController.navigate(Screen.Login.route) {
@@ -118,155 +96,112 @@ fun CampusFindNavGraph(
                         launchSingleTop = true
                     }
                 },
-                currentUserName = sessionManager.currentUserName ?: "User",
+                currentUserName  = sessionManager.currentUserName ?: "User",
                 currentUserEmail = sessionManager.currentUserEmail ?: "user@university.edu"
             )
         }
 
-        composable(Screen.AddItem.route) {
-            AddItemScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+        // ── Notifications ────────────────────────────────────────────────────
+
+        composable(Screen.Notifications.route) {
+            NotificationScreen(
+                onNavigateBack     = { navController.popBackStack() },
+                onNavigateToDetail = { navController.navigate(Screen.Detail.createRoute(it)) }
             )
         }
 
-        // ── Detail Route (UPDATED FOR PHASE 6) ──────────────────────────────
+        // ── Add Item ─────────────────────────────────────────────────────────
+
+        composable(Screen.AddItem.route) {
+            AddItemScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        // ── Detail ───────────────────────────────────────────────────────────
 
         composable(
             route = Screen.Detail.route,
-            arguments = listOf(
-                navArgument("itemId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             DetailScreen(
                 itemId = itemId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToEdit = { itemId ->
-                    navController.navigate(Screen.EditItem.createRoute(itemId))
-                },
-                onNavigateToSubmitClaim = { itemId ->
-                    navController.navigate(Screen.SubmitClaim.createRoute(itemId))
-                },
-                onNavigateToReviewClaims = { itemId ->
-                    navController.navigate(Screen.ReviewClaims.createRoute(itemId))
-                }
+                onNavigateBack         = { navController.popBackStack() },
+                onNavigateToEdit       = { navController.navigate(Screen.EditItem.createRoute(it)) },
+                onNavigateToSubmitClaim  = { navController.navigate(Screen.SubmitClaim.createRoute(it)) },
+                onNavigateToReviewClaims = { navController.navigate(Screen.ReviewClaims.createRoute(it)) }
             )
         }
 
-        // ── EditItem Route ───────────────────────────────────────────────────
+        // ── Edit Item ────────────────────────────────────────────────────────
 
         composable(
             route = Screen.EditItem.route,
-            arguments = listOf(
-                navArgument("itemId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-            EditItemScreen(
-                itemId = itemId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
+            EditItemScreen(itemId = itemId, onNavigateBack = { navController.popBackStack() })
         }
 
-        // ── Settings Route ───────────────────────────────────────────────────
+        // ── Settings ─────────────────────────────────────────────────────────
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
+                onNavigateBack   = { navController.popBackStack() },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
-                currentUserName = sessionManager.currentUserName ?: "User",
+                currentUserName  = sessionManager.currentUserName ?: "User",
                 currentUserEmail = sessionManager.currentUserEmail ?: ""
             )
         }
 
-        // ── Profile Route ────────────────────────────────────────────────────
+        // ── Profile ──────────────────────────────────────────────────────────
 
         composable(Screen.Profile.route) {
             UserProfileScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToAddItem = {
-                    navController.navigate(Screen.AddItem.route)
-                },
-                onNavigateToHome = {
-                    // ✅ FIX: Just go back - we came from Home, so going back = Home
-                    navController.popBackStack()
-                },
-                onNavigateToDetail = { itemId ->
-                    navController.navigate(Screen.Detail.createRoute(itemId))
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
-                }
+                onNavigateBack    = { navController.popBackStack() },
+                onNavigateToAddItem = { navController.navigate(Screen.AddItem.route) },
+                onNavigateToHome  = { navController.popBackStack() },
+                onNavigateToDetail = { navController.navigate(Screen.Detail.createRoute(it)) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
 
-        // ── Smart History Route ──────────────────────────────────────────────
+        // ── Smart History ────────────────────────────────────────────────────
 
         composable(Screen.SmartHistory.route) {
             SmartHistoryScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToDetail = { itemId ->
-                    navController.navigate(Screen.Detail.createRoute(itemId))
-                }
+                onNavigateBack     = { navController.popBackStack() },
+                onNavigateToDetail = { navController.navigate(Screen.Detail.createRoute(it)) }
             )
         }
 
-        // ── CLAIMS ROUTES (NEW IN PHASE 6) ──────────────────────────────────
+        // ── Claims ───────────────────────────────────────────────────────────
 
         composable(
             route = Screen.SubmitClaim.route,
-            arguments = listOf(
-                navArgument("itemId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-
-            // TODO: Get item title from viewModel or pass via savedStateHandle
-            val itemTitle = "Lost Item"  // Placeholder
-
             SubmitClaimScreen(
-                itemId = itemId,
-                itemTitle = itemTitle,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                itemId    = itemId,
+                itemTitle = "Lost Item",
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
         composable(
             route = Screen.ReviewClaims.route,
-            arguments = listOf(
-                navArgument("itemId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-
-            // TODO: Get item title from viewModel or pass via savedStateHandle
-            val itemTitle = "Lost Item"  // Placeholder
-
             ReviewClaimsScreen(
-                itemId = itemId,
-                itemTitle = itemTitle,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                itemId    = itemId,
+                itemTitle = "Lost Item",
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
