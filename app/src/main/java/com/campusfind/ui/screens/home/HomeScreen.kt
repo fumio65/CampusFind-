@@ -32,6 +32,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.components.NavigationDrawer
+import com.campusfind.ui.screens.notifications.NotificationViewModel
 import com.campusfind.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -46,6 +47,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToSmartHistory: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onLogout: () -> Unit,
     currentUserName: String,
     currentUserEmail: String,
@@ -56,6 +58,16 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Notification badge count — reads from SessionManager-persisted state
+    // Uses a fresh load each time HomeScreen is visible so badge reflects taps in NotificationScreen
+    val notifViewModel: NotificationViewModel = hiltViewModel()
+    val unreadCount by notifViewModel.unreadCount.collectAsState()
+
+    // Reload when returning to HomeScreen so badge reflects reads done in NotificationScreen
+    LaunchedEffect(Unit) {
+        notifViewModel.loadNotifications()
+    }
 
     val filteredItems = remember(uiState.items, searchQuery) {
         if (searchQuery.isBlank()) uiState.items
@@ -94,7 +106,9 @@ fun HomeScreen(
                     onSearchQueryChanged = { searchQuery = it },
                     onFilterChanged      = { viewModel.onFilterChanged(it) },
                     onOpenDrawer         = { scope.launch { drawerState.open() } },
-                    onNavigateToProfile  = onNavigateToProfile
+                    onNavigateToProfile  = onNavigateToProfile,
+                    onNavigateToNotifications = onNavigateToNotifications,
+                    unreadCount          = unreadCount
                 )
 
                 when {
@@ -205,7 +219,9 @@ fun GradientHero(
     onSearchQueryChanged: (String) -> Unit,
     onFilterChanged: (ItemStatus?) -> Unit,
     onOpenDrawer: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    unreadCount: Int = 0
 ) {
     Box(
         modifier = Modifier
@@ -260,13 +276,36 @@ fun GradientHero(
                 Spacer(Modifier.weight(1f))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        onClick = {}, modifier = Modifier.size(36.dp), shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("🔔", fontSize = 15.sp, color = Color.White)
+                    // Notification bell with badge
+                    Box {
+                        Surface(
+                            onClick = onNavigateToNotifications,
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("🔔", fontSize = 15.sp, color = Color.White)
+                            }
+                        }
+                        // Unread badge — top-end, properly centered
+                        if (unreadCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(17.dp)
+                                    .background(ModernLost, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadCount > 9) "9+" else "$unreadCount",
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                     Box(
