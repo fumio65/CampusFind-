@@ -32,7 +32,6 @@ import coil.compose.rememberAsyncImagePainter
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.components.NavigationDrawer
-import com.campusfind.ui.screens.notifications.NotificationViewModel
 import com.campusfind.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -51,6 +50,7 @@ fun HomeScreen(
     onLogout: () -> Unit,
     currentUserName: String,
     currentUserEmail: String,
+    unreadNotificationCount: Int = 0,          // ← passed from NavGraph, no extra ViewModel
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -59,15 +59,7 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Notification badge count — reads from SessionManager-persisted state
-    // Uses a fresh load each time HomeScreen is visible so badge reflects taps in NotificationScreen
-    val notifViewModel: NotificationViewModel = hiltViewModel()
-    val unreadCount by notifViewModel.unreadCount.collectAsState()
 
-    // Reload when returning to HomeScreen so badge reflects reads done in NotificationScreen
-    LaunchedEffect(Unit) {
-        notifViewModel.loadNotifications()
-    }
 
     val filteredItems = remember(uiState.items, searchQuery) {
         if (searchQuery.isBlank()) uiState.items
@@ -79,6 +71,7 @@ fun HomeScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen,  // ← only allow gesture to CLOSE, not open
         drawerContent = {
             NavigationDrawer(
                 currentUserName      = currentUserName,
@@ -108,7 +101,7 @@ fun HomeScreen(
                     onOpenDrawer         = { scope.launch { drawerState.open() } },
                     onNavigateToProfile  = onNavigateToProfile,
                     onNavigateToNotifications = onNavigateToNotifications,
-                    unreadCount          = unreadCount
+                    unreadCount          = unreadNotificationCount
                 )
 
                 when {

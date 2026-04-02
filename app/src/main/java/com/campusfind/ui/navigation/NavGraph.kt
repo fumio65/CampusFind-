@@ -1,7 +1,10 @@
 package com.campusfind.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,6 +17,7 @@ import com.campusfind.ui.screens.edititem.EditItemScreen
 import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
 import com.campusfind.ui.screens.notifications.NotificationScreen
+import com.campusfind.ui.screens.notifications.NotificationViewModel
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
 import com.campusfind.ui.screens.profile.UserProfileScreen
 import com.campusfind.ui.screens.register.RegisterScreen
@@ -80,14 +84,26 @@ fun CampusFindNavGraph(
         }
 
         // ── Home ─────────────────────────────────────────────────────────────
+        // NotificationViewModel is created HERE at the backStackEntry level,
+        // not inside HomeScreen — this prevents the dual hiltViewModel() crash.
+        // unreadCount is passed as a plain Int parameter to HomeScreen.
 
-        composable(Screen.Home.route) {
+        composable(Screen.Home.route) { backStackEntry ->
+            val notifViewModel: NotificationViewModel = hiltViewModel(backStackEntry)
+            val unreadCount by notifViewModel.unreadCount.collectAsStateWithLifecycle()
+
+            // Reload each time Home becomes visible so badge reflects
+            // any reads done inside NotificationScreen
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                notifViewModel.loadNotifications()
+            }
+
             HomeScreen(
-                onNavigateToAddItem      = { navController.navigate(Screen.AddItem.route) },
-                onNavigateToDetail       = { navController.navigate(Screen.Detail.createRoute(it)) },
-                onNavigateToSettings     = { navController.navigate(Screen.Settings.route) },
-                onNavigateToProfile      = { navController.navigate(Screen.Profile.route) },
-                onNavigateToSmartHistory = { navController.navigate(Screen.SmartHistory.route) },
+                onNavigateToAddItem       = { navController.navigate(Screen.AddItem.route) },
+                onNavigateToDetail        = { navController.navigate(Screen.Detail.createRoute(it)) },
+                onNavigateToSettings      = { navController.navigate(Screen.Settings.route) },
+                onNavigateToProfile       = { navController.navigate(Screen.Profile.route) },
+                onNavigateToSmartHistory  = { navController.navigate(Screen.SmartHistory.route) },
                 onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                 onLogout = {
                     sessionManager.clearSession()
@@ -96,8 +112,9 @@ fun CampusFindNavGraph(
                         launchSingleTop = true
                     }
                 },
-                currentUserName  = sessionManager.currentUserName ?: "User",
-                currentUserEmail = sessionManager.currentUserEmail ?: "user@university.edu"
+                currentUserName             = sessionManager.currentUserName ?: "User",
+                currentUserEmail            = sessionManager.currentUserEmail ?: "user@university.edu",
+                unreadNotificationCount     = unreadCount
             )
         }
 
@@ -124,9 +141,9 @@ fun CampusFindNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             DetailScreen(
-                itemId = itemId,
-                onNavigateBack         = { navController.popBackStack() },
-                onNavigateToEdit       = { navController.navigate(Screen.EditItem.createRoute(it)) },
+                itemId                   = itemId,
+                onNavigateBack           = { navController.popBackStack() },
+                onNavigateToEdit         = { navController.navigate(Screen.EditItem.createRoute(it)) },
                 onNavigateToSubmitClaim  = { navController.navigate(Screen.SubmitClaim.createRoute(it)) },
                 onNavigateToReviewClaims = { navController.navigate(Screen.ReviewClaims.createRoute(it)) }
             )
@@ -139,14 +156,17 @@ fun CampusFindNavGraph(
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-            EditItemScreen(itemId = itemId, onNavigateBack = { navController.popBackStack() })
+            EditItemScreen(
+                itemId         = itemId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // ── Settings ─────────────────────────────────────────────────────────
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onNavigateBack   = { navController.popBackStack() },
+                onNavigateBack    = { navController.popBackStack() },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -162,10 +182,10 @@ fun CampusFindNavGraph(
 
         composable(Screen.Profile.route) {
             UserProfileScreen(
-                onNavigateBack    = { navController.popBackStack() },
-                onNavigateToAddItem = { navController.navigate(Screen.AddItem.route) },
-                onNavigateToHome  = { navController.popBackStack() },
-                onNavigateToDetail = { navController.navigate(Screen.Detail.createRoute(it)) },
+                onNavigateBack       = { navController.popBackStack() },
+                onNavigateToAddItem  = { navController.navigate(Screen.AddItem.route) },
+                onNavigateToHome     = { navController.popBackStack() },
+                onNavigateToDetail   = { navController.navigate(Screen.Detail.createRoute(it)) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -187,8 +207,8 @@ fun CampusFindNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             SubmitClaimScreen(
-                itemId    = itemId,
-                itemTitle = "Lost Item",
+                itemId         = itemId,
+                itemTitle      = "Lost Item",
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -199,8 +219,8 @@ fun CampusFindNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             ReviewClaimsScreen(
-                itemId    = itemId,
-                itemTitle = "Lost Item",
+                itemId         = itemId,
+                itemTitle      = "Lost Item",
                 onNavigateBack = { navController.popBackStack() }
             )
         }
