@@ -39,9 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
-import com.campusfind.ui.components.NavigationDrawer
 import com.campusfind.ui.theme.*
-import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -51,11 +49,8 @@ import java.util.concurrent.TimeUnit
 fun HomeScreen(
     onNavigateToAddItem: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onNavigateToProfile: () -> Unit,
-    onNavigateToSmartHistory: () -> Unit,
     onNavigateToNotifications: () -> Unit,
-    onLogout: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     currentUserName: String,
     currentUserEmail: String,
     unreadNotificationCount: Int = 0,
@@ -64,8 +59,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val colors = LocalAppColors.current
     var searchQuery by remember { mutableStateOf("") }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
 
     val filteredItems = remember(uiState.items, searchQuery) {
         if (searchQuery.isBlank()) uiState.items
@@ -75,120 +68,105 @@ fun HomeScreen(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState     = drawerState,
-        gesturesEnabled = drawerState.isOpen,
-        drawerContent   = {
-            NavigationDrawer(
-                currentUserName      = currentUserName,
-                currentUserEmail     = currentUserEmail,
-                onNavigateToProfile  = onNavigateToProfile,
-                onNavigateToSmartHistory = onNavigateToSmartHistory,
-                onNavigateToSettings = onNavigateToSettings,
-                onLogout             = onLogout,
-                onDismiss            = { scope.launch { drawerState.close() } }
-            )
+    val listState = rememberLazyListState()
+    val firstItemId = filteredItems.firstOrNull()?.id
+    LaunchedEffect(firstItemId) {
+        if (filteredItems.isNotEmpty()) {
+            listState.animateScrollToItem(0)
         }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.screenBg)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.screenBg)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
 
-                // ── Hero ───────────────────────────────────────────────────
-                GradientHero(
-                    itemCount             = filteredItems.size,
-                    selectedFilter        = uiState.selectedFilter,
-                    lostCount             = filteredItems.count { it.status == ItemStatus.LOST },
-                    foundCount            = filteredItems.count { it.status == ItemStatus.FOUND },
-                    searchQuery           = searchQuery,
-                    onSearchQueryChanged  = { searchQuery = it },
-                    onFilterChanged       = { viewModel.onFilterChanged(it) },
-                    onOpenDrawer          = { scope.launch { drawerState.open() } },
-                    onNavigateToProfile   = onNavigateToProfile,
-                    onNavigateToNotifications = onNavigateToNotifications,
-                    unreadCount           = unreadNotificationCount,
-                    currentUserName       = currentUserName
-                )
+            // ── Hero ───────────────────────────────────────────────────
+            GradientHero(
+                itemCount             = filteredItems.size,
+                selectedFilter        = uiState.selectedFilter,
+                lostCount             = filteredItems.count { it.status == ItemStatus.LOST },
+                foundCount            = filteredItems.count { it.status == ItemStatus.FOUND },
+                searchQuery           = searchQuery,
+                onSearchQueryChanged  = { searchQuery = it },
+                onFilterChanged       = { viewModel.onFilterChanged(it) },
+                onNavigateToProfile   = onNavigateToProfile,
+                onNavigateToNotifications = onNavigateToNotifications,
+                unreadCount           = unreadNotificationCount,
+                currentUserName       = currentUserName
+            )
 
-                // ── Content ────────────────────────────────────────────────
-                when {
-                    uiState.isLoading -> {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = ModernAccent, strokeWidth = 2.dp)
-                        }
+            // ── Content ────────────────────────────────────────────────
+            when {
+                uiState.isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = ModernAccent, strokeWidth = 2.dp)
                     }
-                    uiState.error != null -> {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(uiState.error ?: "Unknown error", color = ModernError, fontSize = 14.sp)
-                        }
+                }
+                uiState.error != null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(uiState.error ?: "Unknown error", color = ModernError, fontSize = 14.sp)
                     }
-                    uiState.items.isEmpty() -> {
-                        EmptyState(
-                            icon     = "📭",
-                            title    = "No items reported yet",
-                            subtitle = "Be the first to report a lost item!",
-                            colors   = colors
-                        )
-                    }
-                    filteredItems.isEmpty() -> {
-                        EmptyState(
-                            icon     = "🔍",
-                            title    = "No matches found",
-                            subtitle = "Try different keywords",
-                            colors   = colors
-                        )
-                    }
-                    else -> {
-                        val listState = rememberLazyListState()
-                        val firstItemId = filteredItems.firstOrNull()?.id
-                        LaunchedEffect(firstItemId) {
-                            listState.animateScrollToItem(0)
-                        }
-                        LazyColumn(
-                            state           = listState,
-                            modifier        = Modifier.fillMaxSize(),
-                            contentPadding  = PaddingValues(
-                                start  = 16.dp, end = 16.dp,
-                                top    = 12.dp, bottom = 88.dp
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-
-                            items(items = filteredItems, key = { it.id }) { item ->
-                                ModernItemCard(
-                                    item         = item,
-                                    reporterName = uiState.reporterNames[item.reportedBy] ?: "...",
-                                    onClick      = { onNavigateToDetail(item.id) }
-                                )
-                            }
+                }
+                uiState.items.isEmpty() -> {
+                    EmptyState(
+                        icon     = "📭",
+                        title    = "No items reported yet",
+                        subtitle = "Be the first to report a lost item!",
+                        colors   = colors
+                    )
+                }
+                filteredItems.isEmpty() -> {
+                    EmptyState(
+                        icon     = "🔍",
+                        title    = "No matches found",
+                        subtitle = "Try different keywords",
+                        colors   = colors
+                    )
+                }
+                else -> {
+                    LazyColumn(
+                        state           = listState,
+                        modifier        = Modifier.fillMaxSize(),
+                        contentPadding  = PaddingValues(
+                            start  = 16.dp, end = 16.dp,
+                            top    = 12.dp, bottom = 88.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(items = filteredItems, key = { it.id }) { item ->
+                            ModernItemCard(
+                                item         = item,
+                                reporterName = uiState.reporterNames[item.reportedBy] ?: "...",
+                                onClick      = { onNavigateToDetail(item.id) }
+                            )
                         }
                     }
                 }
             }
+        }
 
-            // ── FAB ────────────────────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 28.dp, end = 20.dp)
-                    .shadow(12.dp, CircleShape, ambientColor = ModernAccent.copy(0.4f), spotColor = ModernAccent.copy(0.4f))
-                    .size(58.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
-                contentAlignment = Alignment.Center
+        // ── FAB ────────────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 28.dp, end = 20.dp)
+                .shadow(12.dp, CircleShape, ambientColor = ModernAccent.copy(0.4f), spotColor = ModernAccent.copy(0.4f))
+                .size(58.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                onClick   = onNavigateToAddItem,
+                modifier  = Modifier.fillMaxSize(),
+                color     = Color.Transparent,
+                shape     = CircleShape
             ) {
-                Surface(
-                    onClick   = onNavigateToAddItem,
-                    modifier  = Modifier.fillMaxSize(),
-                    color     = Color.Transparent,
-                    shape     = CircleShape
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("+", fontSize = 28.sp, fontWeight = FontWeight.Thin, color = Color.White)
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Text("+", fontSize = 28.sp, fontWeight = FontWeight.Thin, color = Color.White)
                 }
             }
         }
@@ -233,7 +211,6 @@ fun GradientHero(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     onFilterChanged: (ItemStatus?) -> Unit,
-    onOpenDrawer: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     unreadCount: Int = 0,
@@ -266,16 +243,9 @@ fun GradientHero(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Hamburger
-                IconButton36(onClick = onOpenDrawer) {
-                    Text("☰", fontSize = 16.sp, color = Color.White)
-                }
-
-                Spacer(Modifier.weight(1f))
-
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically

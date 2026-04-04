@@ -12,6 +12,7 @@ import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.TipRepository
 import com.campusfind.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -40,6 +41,9 @@ class DetailViewModel @Inject constructor(
 
     private var currentItemId: String = ""
     private var lastReplyTime: Long = 0
+    private var tipsJob: Job? = null
+    private var claimsJob: Job? = null
+    private val claimReplyJobs = mutableMapOf<String, Job>()
 
     val hasPendingClaim: Boolean
         get() = _uiState.value.claims.any {
@@ -93,7 +97,8 @@ class DetailViewModel @Inject constructor(
     }
 
     private fun observeTips() {
-        viewModelScope.launch {
+        tipsJob?.cancel()
+        tipsJob = viewModelScope.launch {
             tipRepository.getTipsByItemId(currentItemId)
                 .collect { tips ->
                     val userId = sessionManager.currentUserId
@@ -112,27 +117,29 @@ class DetailViewModel @Inject constructor(
         }
     }
 
-    // ✅ FIXED: Properly observe claims and their replies
     private fun observeClaims() {
-        viewModelScope.launch {
+        claimsJob?.cancel()
+        // Cancelling the outer job cascades to all inner claimReplyJobs (they are children).
+        claimReplyJobs.clear()
+
+        claimsJob = viewModelScope.launch {
             claimRepository.getClaimsByItem(currentItemId)
                 .collect { claims ->
-                    // For each approved claim, observe its replies separately
+                    // For each approved claim, start one reply-observer (skip if already running).
                     claims.forEach { claim ->
-                        if (claim.status == com.campusfind.domain.model.ClaimStatus.APPROVED) {
-                            launch {
+                        if (claim.status == com.campusfind.domain.model.ClaimStatus.APPROVED &&
+                            !claimReplyJobs.containsKey(claim.id)
+                        ) {
+                            claimReplyJobs[claim.id] = launch {
                                 claimRepository.getRepliesByClaimId(claim.id)
                                     .collect { replies ->
-                                        // Update the specific claim's replies
                                         _uiState.update { state ->
                                             val updatedReplies = state.claimReplies.toMutableMap()
-                                            val updatedCounts = state.claimReplyCounts.toMutableMap()
-
+                                            val updatedCounts  = state.claimReplyCounts.toMutableMap()
                                             updatedReplies[claim.id] = replies
-                                            updatedCounts[claim.id] = replies.size
-
+                                            updatedCounts[claim.id]  = replies.size
                                             state.copy(
-                                                claimReplies = updatedReplies,
+                                                claimReplies     = updatedReplies,
                                                 claimReplyCounts = updatedCounts
                                             )
                                         }
@@ -141,10 +148,15 @@ class DetailViewModel @Inject constructor(
                         }
                     }
 
-                    // Update claims list
+                    // Cancel reply jobs for claims that are no longer in the list.
+                    val currentIds = claims.map { it.id }.toSet()
+                    claimReplyJobs.keys.filter { it !in currentIds }.forEach { id ->
+                        claimReplyJobs.remove(id)?.cancel()
+                    }
+
                     _uiState.update {
                         it.copy(
-                            claims = claims,
+                            claims     = claims,
                             claimCount = claims.size
                         )
                     }

@@ -9,10 +9,12 @@ import com.campusfind.domain.repository.ClaimRepository
 import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.TipRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import android.content.SharedPreferences
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 // ── Notification types ─────────────────────────────────────────────────────
@@ -108,12 +110,19 @@ class NotificationViewModel @Inject constructor(
             initialValue = 0
         )
 
+    // Tracks the active collection job so repeated calls cancel the previous one.
+    // Without this, every call to loadNotifications() stacks a new permanent
+    // collect { } coroutine, leaking memory and overwhelming Room with concurrent
+    // queries — causing a silent OOM kill with no Logcat error.
+    private var loadJob: Job? = null
+
     init {
         loadNotifications()
     }
 
     fun loadNotifications() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             // Guard — don't load if no user is logged in
             val currentUserId = sessionManager.currentUserId
             if (currentUserId == null) {
@@ -357,6 +366,8 @@ class NotificationViewModel @Inject constructor(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(

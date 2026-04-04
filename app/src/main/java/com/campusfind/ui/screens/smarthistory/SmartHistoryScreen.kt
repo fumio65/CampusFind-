@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.campusfind.ui.theme.*
-import com.campusfind.ui.components.HeroBackButton
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -39,7 +38,6 @@ import java.util.concurrent.TimeUnit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmartHistoryScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     viewModel: SmartHistoryViewModel = hiltViewModel()
 ) {
@@ -57,10 +55,9 @@ fun SmartHistoryScreen(
 
             // ── Hero ───────────────────────────────────────────────────────
             SmartHistoryHero(
-                onNavigateBack = onNavigateBack,
-                totalItems     = uiState.totalItemsPosted,
-                foundItems     = uiState.itemsFound,
-                successRate    = uiState.successRate
+                totalItems  = uiState.totalItemsPosted,
+                foundItems  = uiState.itemsFound,
+                successRate = uiState.successRate
             )
 
             // ── Content ────────────────────────────────────────────────────
@@ -169,7 +166,6 @@ fun SmartHistoryScreen(
 
 @Composable
 fun SmartHistoryHero(
-    onNavigateBack: () -> Unit,
     totalItems: Int,
     foundItems: Int,
     successRate: Int
@@ -192,11 +188,6 @@ fun SmartHistoryHero(
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-            Spacer(Modifier.height(8.dp))
-
-            // Back button
-            HeroBackButton(onClick = onNavigateBack, modifier = Modifier.padding(start = 14.dp))
-
             Spacer(Modifier.height(16.dp))
 
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {

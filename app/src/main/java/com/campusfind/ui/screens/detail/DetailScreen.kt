@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -223,7 +224,12 @@ fun DetailScreen(
                             border = BorderStroke(1.dp, Color.White.copy(0.18f))
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("↗", fontSize = 14.sp, color = Color.White)
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription = "Share",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
 
@@ -251,12 +257,34 @@ fun DetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(colors.screenBg)
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        MetaCol("REPORTED", formatDate(item.reportedAt), colors)
-                        MetaCol("TIME",     formatTime(item.reportedAt), colors)
-                        MetaCol("SYNC",     "Local", colors, ModernAccent)
+                        // Reported date pill
+                        MetaPill(
+                            icon    = "📅",
+                            label   = "REPORTED",
+                            value   = formatDate(item.reportedAt),
+                            colors  = colors,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Time pill
+                        MetaPill(
+                            icon    = "🕐",
+                            label   = "TIME",
+                            value   = formatTime(item.reportedAt),
+                            colors  = colors,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Sync pill
+                        MetaPill(
+                            icon        = "📍",
+                            label       = "SYNC",
+                            value       = "Local",
+                            colors      = colors,
+                            valueColor  = ModernAccent,
+                            modifier    = Modifier.weight(1f)
+                        )
                     }
 
                     // ── Scrollable content ─────────────────────────────────
@@ -610,11 +638,35 @@ fun DetailScreen(
 // ── Meta column helper ─────────────────────────────────────────────────────
 
 @Composable
-private fun MetaCol(label: String, value: String, colors: AppColors, valueColor: Color? = null) {
-    Column(modifier = Modifier.wrapContentWidth()) {
-        Text(label, fontSize = 8.sp, color = colors.textMuted, letterSpacing = 0.5.sp)
-        Text(value, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-            color = valueColor ?: colors.textPrimary)
+private fun MetaPill(
+    icon: String,
+    label: String,
+    value: String,
+    colors: AppColors,
+    valueColor: Color? = null,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = colors.cardBg,
+        border = BorderStroke(1.dp, colors.cardBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(icon, fontSize = 9.sp)
+                Text(label, fontSize = 8.sp, color = colors.textMuted,
+                    letterSpacing = 0.4.sp, fontWeight = FontWeight.Medium)
+            }
+            Text(value, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                color = valueColor ?: colors.textPrimary)
+        }
     }
 }
 
@@ -693,11 +745,10 @@ fun PublicTipsSection(
                                 value = tipText,
                                 onValueChange = { if (it.length <= MAX_TIP_LENGTH) tipText = it },
                                 modifier = Modifier.weight(1f),
-                                textStyle = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, color = colors.textPrimary),
-                                cursorBrush = SolidColor(ModernAccent),
+                                textStyle = TextStyle(fontSize = 11.sp, color = colors.textPrimary),
                                 decorationBox = { inner ->
                                     if (tipText.isEmpty()) Text("Seen it? Leave a tip...",
-                                        fontSize = 11.sp, lineHeight = 16.sp, color = colors.textMuted)
+                                        fontSize = 11.sp, color = colors.textMuted)
                                     inner()
                                 }
                             )
@@ -816,7 +867,6 @@ fun TipCard(
                         onValueChange = { if (it.length <= MAX_TIP_LENGTH) replyText = it },
                         modifier = Modifier.weight(1f),
                         textStyle = TextStyle(fontSize = 10.sp, color = colors.textPrimary),
-                        cursorBrush = SolidColor(ModernAccent),
                         decorationBox = { inner ->
                             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp),
                                 color = if (colors.isDark) Color(0xFF1A1730) else Color(0xFFF4F3FF),
@@ -943,7 +993,6 @@ private fun IFoundThisItemSection(onSubmit: (String, String?) -> Unit, modifier:
                     onValueChange = { if (it.length <= 200) location = it },
                     modifier = Modifier.fillMaxWidth().padding(8.dp).heightIn(min = 40.dp),
                     textStyle = TextStyle(fontSize = 10.sp, color = colors.textPrimary, lineHeight = 14.sp),
-                    cursorBrush = SolidColor(ModernAccent),
                     decorationBox = { inner ->
                         if (location.isEmpty()) {
                             Text("Describe where you found it...",
@@ -1279,14 +1328,13 @@ private fun PinnedVerifiedClaim(
                     BasicTextField(value = replyText,
                         onValueChange = { if (it.length <= 200) replyText = it },
                         modifier = Modifier.weight(1f),
-                        textStyle = TextStyle(fontSize = 10.sp, lineHeight = 14.sp, color = colors.textPrimary),
-                        cursorBrush = SolidColor(ModernAccent),
+                        textStyle = TextStyle(fontSize = 10.sp, color = Color.Black),
                         decorationBox = { inner ->
                             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp),
-                                color = colors.cardBg, border = BorderStroke(1.5.dp, Color(0xFF0ea870).copy(0.3f))) {
+                                color = Color.White, border = BorderStroke(1.5.dp, Color(0xFF0ea870).copy(0.3f))) {
                                 Box(modifier = Modifier.padding(10.dp)) {
                                     if (replyText.isEmpty()) Text("Arrange meetup details...",
-                                        fontSize = 10.sp, lineHeight = 14.sp, color = colors.textMuted)
+                                        fontSize = 10.sp, color = Color(0xFFBBBBBB))
                                     inner()
                                 }
                             }
