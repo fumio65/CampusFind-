@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +24,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -139,7 +142,13 @@ fun HomeScreen(
                         )
                     }
                     else -> {
+                        val listState = rememberLazyListState()
+                        val firstItemId = filteredItems.firstOrNull()?.id
+                        LaunchedEffect(firstItemId) {
+                            listState.animateScrollToItem(0)
+                        }
                         LazyColumn(
+                            state           = listState,
                             modifier        = Modifier.fillMaxSize(),
                             contentPadding  = PaddingValues(
                                 start  = 16.dp, end = 16.dp,
@@ -288,6 +297,7 @@ fun GradientHero(
                                 Text(
                                     text = if (unreadCount > 9) "9+" else "$unreadCount",
                                     fontSize = 7.sp,
+                                    lineHeight = 7.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color.White,
                                     textAlign = TextAlign.Center
@@ -391,15 +401,15 @@ fun GradientHero(
                         value = searchQuery,
                         onValueChange = onSearchQueryChanged,
                         modifier = Modifier.weight(1f),
-                        textStyle = LocalTextStyle.current.copy(
-                            fontSize = 14.sp, color = Color.White
-                        ),
+                        textStyle = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = Color.White),
                         singleLine = true,
+                        cursorBrush = SolidColor(Color.White),
                         decorationBox = { inner ->
                             if (searchQuery.isEmpty()) {
                                 Text(
                                     "Search lost items...",
                                     fontSize = 14.sp,
+                                    lineHeight = 20.sp,
                                     color = Color.White.copy(alpha = 0.4f)
                                 )
                             }
@@ -696,6 +706,7 @@ fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
                             Text(
                                 text = reporterName.firstOrNull()?.uppercase() ?: "?",
                                 fontSize = 10.sp,
+                                lineHeight = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (colors.isDark) ModernAccent else colors.textMuted
                             )

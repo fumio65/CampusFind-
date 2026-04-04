@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -170,6 +171,7 @@ fun ModernTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default
 ) {
+    val appColors = LocalAppColors.current
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -178,7 +180,7 @@ fun ModernTextField(
         Text(
             text = label,
             style = SectionLabelText,
-            color = ModernTextMuted,
+            color = appColors.textMuted,
             modifier = Modifier.padding(start = 4.dp)
         )
 
@@ -190,13 +192,15 @@ fun ModernTextField(
             placeholder = {
                 Text(
                     text = placeholder,
-                    color = ModernTextDim,
-                    fontSize = 13.sp
+                    color = appColors.textMuted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
                 )
             },
-            textStyle = LocalTextStyle.current.copy(
+            textStyle = TextStyle(
                 fontSize = 14.sp,
-                color = ModernText
+                lineHeight = 20.sp,
+                color = appColors.textPrimary
             ),
             visualTransformation = if (isPassword) {
                 PasswordVisualTransformation()
@@ -210,15 +214,15 @@ fun ModernTextField(
             keyboardActions = keyboardActions,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = ModernSurface,
-                unfocusedContainerColor = ModernSurface,
-                disabledContainerColor = ModernSurface2,
-                focusedBorderColor = ModernAccent,
-                unfocusedBorderColor = ModernBorder,
-                disabledBorderColor = ModernBorder,
-                cursorColor = ModernAccent,
-                focusedTextColor = ModernText,
-                unfocusedTextColor = ModernText
+                focusedContainerColor   = appColors.cardBg,
+                unfocusedContainerColor = appColors.cardBg,
+                disabledContainerColor  = appColors.inputBg,
+                focusedBorderColor      = ModernAccent,
+                unfocusedBorderColor    = appColors.cardBorder,
+                disabledBorderColor     = appColors.cardBorder,
+                cursorColor             = ModernAccent,
+                focusedTextColor        = appColors.textPrimary,
+                unfocusedTextColor      = appColors.textPrimary
             )
         )
     }

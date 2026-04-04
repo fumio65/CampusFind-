@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -175,6 +176,7 @@ fun AddItemScreen(
                             textStyle   = TextStyle(
                                 fontSize = 13.sp, lineHeight = 20.sp, color = colors.textPrimary
                             ),
+                            cursorBrush = SolidColor(ModernAccent),
                             decorationBox = { inner ->
                                 if (uiState.description.isEmpty()) {
                                     Text(
@@ -421,11 +423,12 @@ private fun FormInput(
                 value         = value,
                 onValueChange = onChange,
                 modifier      = Modifier.weight(1f),
-                textStyle     = TextStyle(fontSize = 13.sp, color = colors.textPrimary),
+                textStyle     = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = colors.textPrimary),
                 singleLine    = true,
+                cursorBrush   = SolidColor(ModernAccent),
                 decorationBox = { inner ->
                     if (value.isEmpty()) {
-                        Text(placeholder, fontSize = 13.sp, color = colors.textMuted)
+                        Text(placeholder, fontSize = 13.sp, lineHeight = 18.sp, color = colors.textMuted)
                     }
                     inner()
                 }
