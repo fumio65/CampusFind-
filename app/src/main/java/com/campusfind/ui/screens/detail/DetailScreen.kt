@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -692,10 +693,11 @@ fun PublicTipsSection(
                                 value = tipText,
                                 onValueChange = { if (it.length <= MAX_TIP_LENGTH) tipText = it },
                                 modifier = Modifier.weight(1f),
-                                textStyle = TextStyle(fontSize = 11.sp, color = colors.textPrimary),
+                                textStyle = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, color = colors.textPrimary),
+                                cursorBrush = SolidColor(ModernAccent),
                                 decorationBox = { inner ->
                                     if (tipText.isEmpty()) Text("Seen it? Leave a tip...",
-                                        fontSize = 11.sp, color = colors.textMuted)
+                                        fontSize = 11.sp, lineHeight = 16.sp, color = colors.textMuted)
                                     inner()
                                 }
                             )
@@ -814,6 +816,7 @@ fun TipCard(
                         onValueChange = { if (it.length <= MAX_TIP_LENGTH) replyText = it },
                         modifier = Modifier.weight(1f),
                         textStyle = TextStyle(fontSize = 10.sp, color = colors.textPrimary),
+                        cursorBrush = SolidColor(ModernAccent),
                         decorationBox = { inner ->
                             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp),
                                 color = if (colors.isDark) Color(0xFF1A1730) else Color(0xFFF4F3FF),
@@ -940,6 +943,7 @@ private fun IFoundThisItemSection(onSubmit: (String, String?) -> Unit, modifier:
                     onValueChange = { if (it.length <= 200) location = it },
                     modifier = Modifier.fillMaxWidth().padding(8.dp).heightIn(min = 40.dp),
                     textStyle = TextStyle(fontSize = 10.sp, color = colors.textPrimary, lineHeight = 14.sp),
+                    cursorBrush = SolidColor(ModernAccent),
                     decorationBox = { inner ->
                         if (location.isEmpty()) {
                             Text("Describe where you found it...",
@@ -1275,13 +1279,14 @@ private fun PinnedVerifiedClaim(
                     BasicTextField(value = replyText,
                         onValueChange = { if (it.length <= 200) replyText = it },
                         modifier = Modifier.weight(1f),
-                        textStyle = TextStyle(fontSize = 10.sp, color = Color.Black),
+                        textStyle = TextStyle(fontSize = 10.sp, lineHeight = 14.sp, color = colors.textPrimary),
+                        cursorBrush = SolidColor(ModernAccent),
                         decorationBox = { inner ->
                             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp),
-                                color = Color.White, border = BorderStroke(1.5.dp, Color(0xFF0ea870).copy(0.3f))) {
+                                color = colors.cardBg, border = BorderStroke(1.5.dp, Color(0xFF0ea870).copy(0.3f))) {
                                 Box(modifier = Modifier.padding(10.dp)) {
                                     if (replyText.isEmpty()) Text("Arrange meetup details...",
-                                        fontSize = 10.sp, color = Color(0xFFBBBBBB))
+                                        fontSize = 10.sp, lineHeight = 14.sp, color = colors.textMuted)
                                     inner()
                                 }
                             }

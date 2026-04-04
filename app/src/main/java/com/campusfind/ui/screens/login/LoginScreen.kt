@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -147,8 +148,9 @@ fun LoginScreen(
                                 modifier = Modifier.alpha(0.6f)
                             )
                         },
-                        textStyle = LocalTextStyle.current.copy(
+                        textStyle = TextStyle(
                             fontSize = 13.sp,
+                            lineHeight = 18.sp,
                             color = Color.White
                         ),
                         singleLine = true,
@@ -214,8 +216,9 @@ fun LoginScreen(
                         } else {
                             PasswordVisualTransformation()
                         },
-                        textStyle = LocalTextStyle.current.copy(
+                        textStyle = TextStyle(
                             fontSize = 13.sp,
+                            lineHeight = 18.sp,
                             color = Color.White
                         ),
                         singleLine = true,

@@ -17,10 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.campusfind.ui.theme.LocalAppColors
+import com.campusfind.ui.theme.ModernAccent
 
 /**
  * Submit Claim Screen - Matches CampusFind+ theme
@@ -35,6 +38,7 @@ fun SubmitClaimScreen(
     viewModel: SubmitClaimViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val colors = LocalAppColors.current
 
     // Photo picker launcher
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -187,7 +191,7 @@ fun SubmitClaimScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(Color(0xFFF4F4F0))
+                .background(colors.screenBg)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -245,7 +249,7 @@ fun SubmitClaimScreen(
                     "WHERE DID YOU FIND IT?",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFAAAAAA),
+                    color = colors.textMuted,
                     letterSpacing = 0.6.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
@@ -258,14 +262,16 @@ fun SubmitClaimScreen(
                         Text(
                             "e.g., Found in library, 2nd floor near computers",
                             fontSize = 12.sp,
-                            color = Color(0xFFBBBBBB)
+                            color = colors.textMuted
                         )
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color(0xFF2DD4A0),
-                        unfocusedBorderColor = Color(0xFFE8E8E4)
+                        focusedContainerColor   = colors.cardBg,
+                        unfocusedContainerColor = colors.cardBg,
+                        focusedBorderColor      = Color(0xFF2DD4A0),
+                        unfocusedBorderColor    = colors.cardBorder,
+                        focusedTextColor        = colors.textPrimary,
+                        unfocusedTextColor      = colors.textPrimary
                     ),
                     shape = RoundedCornerShape(12.dp),
                     minLines = 3,
@@ -280,7 +286,7 @@ fun SubmitClaimScreen(
                             color = if (uiState.location.length > 450) {
                                 Color(0xFFFF6F00)
                             } else {
-                                Color(0xFF888888)
+                                colors.textMuted
                             }
                         )
                     }
@@ -300,7 +306,7 @@ fun SubmitClaimScreen(
                         "ADD PHOTO PROOF",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFAAAAAA),
+                        color = colors.textMuted,
                         letterSpacing = 0.6.sp
                     )
                     Text(
@@ -376,7 +382,7 @@ fun SubmitClaimScreen(
                                 .weight(1f)
                                 .height(100.dp),
                             shape = RoundedCornerShape(12.dp),
-                            color = Color.White,
+                            color = colors.cardBg,
                             border = BorderStroke(
                                 1.5.dp,
                                 if (uiState.photoUris.isEmpty()) {
@@ -470,7 +476,7 @@ fun SubmitClaimScreen(
         // ══ STICKY BOTTOM BUTTON ══
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
+            color = colors.cardBg,
             shadowElevation = 8.dp
         ) {
             Column(
