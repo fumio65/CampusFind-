@@ -7,6 +7,9 @@
     -->
     <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
 
+    <!-- Required on Android 13+ (API 33+) to post system notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".CampusFindApplication"
         android:allowBackup="true"

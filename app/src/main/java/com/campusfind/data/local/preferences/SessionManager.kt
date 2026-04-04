@@ -12,11 +12,11 @@ class SessionManager @Inject constructor(
     private val prefs: SharedPreferences
 ) {
     companion object {
-        private const val PREF_CURRENT_USER_ID      = "current_user_id"
-        private const val PREF_CURRENT_USER_NAME    = "current_user_name"
-        private const val PREF_CURRENT_USER_EMAIL   = "current_user_email"
-        private const val PREF_ONBOARDING_COMPLETED = "onboarding_completed"
-        private const val PREF_DARK_MODE            = "dark_mode"
+        private const val PREF_CURRENT_USER_ID        = "current_user_id"
+        private const val PREF_CURRENT_USER_NAME      = "current_user_name"
+        private const val PREF_CURRENT_USER_EMAIL     = "current_user_email"
+        private const val PREF_ONBOARDING_COMPLETED   = "onboarding_completed"
+        private const val PREF_DARK_MODE = "dark_mode"
     }
 
     val currentUserId: String?
@@ -38,13 +38,12 @@ class SessionManager @Inject constructor(
     private val _isDarkMode = MutableStateFlow(prefs.getBoolean(PREF_DARK_MODE, false))
     val isDarkModeFlow: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    // Synchronous read — used during init before flow is collected
     val isDarkMode: Boolean
         get() = _isDarkMode.value
 
     fun setDarkMode(enabled: Boolean) {
         prefs.edit().putBoolean(PREF_DARK_MODE, enabled).apply()
-        _isDarkMode.value = enabled   // triggers MainActivity recomposition instantly
+        _isDarkMode.value = enabled
     }
 
     fun saveSession(userId: String, userName: String, userEmail: String) {

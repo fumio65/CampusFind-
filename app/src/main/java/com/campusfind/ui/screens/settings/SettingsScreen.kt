@@ -146,34 +146,15 @@ fun SettingsScreen(
                                 title = "Dark Mode",
                                 subtitle = if (uiState.isDarkMode) "Enabled" else "Disabled",
                                 colors = colors,
-                                showDivider = true,
+                                showDivider = false,
                                 onClick = {}
                             ) {
                                 Switch(
                                     checked = uiState.isDarkMode,
                                     onCheckedChange = { viewModel.toggleDarkMode() },
                                     colors = SwitchDefaults.colors(
-                                        checkedThumbColor  = Color.White,
-                                        checkedTrackColor  = ModernAccent,
-                                        uncheckedThumbColor = colors.textMuted,
-                                        uncheckedTrackColor = colors.pillBg
-                                    )
-                                )
-                            }
-                            SettingRow(
-                                icon = "🔔",
-                                title = "Notifications",
-                                subtitle = if (uiState.notificationsEnabled) "Enabled" else "Disabled",
-                                colors = colors,
-                                showDivider = false,
-                                onClick = {}
-                            ) {
-                                Switch(
-                                    checked = uiState.notificationsEnabled,
-                                    onCheckedChange = { viewModel.toggleNotifications() },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor  = Color.White,
-                                        checkedTrackColor  = ModernAccent,
+                                        checkedThumbColor   = Color.White,
+                                        checkedTrackColor   = ModernAccent,
                                         uncheckedThumbColor = colors.textMuted,
                                         uncheckedTrackColor = colors.pillBg
                                     )
