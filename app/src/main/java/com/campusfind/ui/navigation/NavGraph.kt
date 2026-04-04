@@ -145,7 +145,7 @@ fun CampusFindNavGraph(
                 onNavigateBack           = { navController.popBackStack() },
                 onNavigateToEdit         = { navController.navigate(Screen.EditItem.createRoute(it)) },
                 onNavigateToSubmitClaim  = { navController.navigate(Screen.SubmitClaim.createRoute(it)) },
-                onNavigateToReviewClaims = { navController.navigate(Screen.ReviewClaims.createRoute(it)) }
+                onNavigateToReviewClaims = { itemId, itemTitle -> navController.navigate(Screen.ReviewClaims.createRoute(itemId, itemTitle)) }
             )
         }
 
@@ -215,12 +215,16 @@ fun CampusFindNavGraph(
 
         composable(
             route = Screen.ReviewClaims.route,
-            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("itemId")    { type = NavType.StringType },
+                navArgument("itemTitle") { type = NavType.StringType; defaultValue = "Lost Item" }
+            )
         ) { backStackEntry ->
-            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+            val itemId    = backStackEntry.arguments?.getString("itemId")    ?: return@composable
+            val itemTitle = backStackEntry.arguments?.getString("itemTitle") ?: "Lost Item"
             ReviewClaimsScreen(
                 itemId         = itemId,
-                itemTitle      = "Lost Item",
+                itemTitle      = itemTitle,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

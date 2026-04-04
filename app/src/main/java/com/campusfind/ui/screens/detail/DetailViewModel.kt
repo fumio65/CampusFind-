@@ -488,4 +488,19 @@ class DetailViewModel @Inject constructor(
         val replies = _uiState.value.claimReplies[claimId] ?: emptyList()
         return replies.any { it.authorId == currentUserId }
     }
+
+    fun withdrawClaim(claimId: String) {
+        val currentUserId = sessionManager.currentUserId ?: return
+        viewModelScope.launch {
+            val result = claimRepository.deleteClaim(claimId)
+            if (result.isSuccess) {
+                // Claim deleted — UI will auto-update via Flow
+                // User can now submit a new claim
+            } else {
+                _uiState.update {
+                    it.copy(error = result.exceptionOrNull()?.message ?: "Failed to withdraw claim")
+                }
+            }
+        }
+    }
 }

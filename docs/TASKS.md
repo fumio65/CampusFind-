@@ -155,7 +155,7 @@ All of this must work with **Airplane Mode ON**.
   - Navigate to Login, clear entire back stack (`popUpTo(0)`)
   - **Acceptance:** Demo steps 6 and 11 pass; back button cannot return to Home after logout
 
-- [ ] **TASK-110** Auth Guard in NavGraph
+- [x] **TASK-110** Auth Guard in NavGraph
   - On app launch: check `SessionManager.isLoggedIn`
   - If true → start at HomeScreen
   - If false → start at LoginScreen
@@ -278,7 +278,7 @@ All of this must work with **Airplane Mode ON**.
   - [x] **Repository** — `RepositoryModule` uses `@Binds` (not `@Provides`) for interface bindings
   - **Acceptance:** Instructor can trace the DI graph: Hilt Module → Impl → Interface → UseCase → ViewModel
 
-- [ ] **TASK-128** MCO 1 Demo Rehearsal
+- [x] **TASK-128** MCO 1 Demo Rehearsal
   - Run full 15-step flow on a physical device
   - Run in Airplane Mode to confirm offline operation
   - Time each step — total demo should be under 5 minutes

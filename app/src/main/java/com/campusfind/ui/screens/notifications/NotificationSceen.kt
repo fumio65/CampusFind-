@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.campusfind.ui.components.HeroBackButton
 import com.campusfind.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -161,25 +162,7 @@ private fun NotificationHero(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Back button
-                Surface(
-                    onClick = onNavigateBack,
-                    shape = RoundedCornerShape(22.dp),
-                    color = Color.Black.copy(alpha = 0.38f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.size(20.dp)
-                                .background(Color.White.copy(alpha = 0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) { Text("‹", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-                        Text("Back", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    }
-                }
+                HeroBackButton(onClick = onNavigateBack)
 
                 // Mark all as read button
                 if (unreadCount > 0) {
