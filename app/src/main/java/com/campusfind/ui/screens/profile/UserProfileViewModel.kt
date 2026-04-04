@@ -8,6 +8,8 @@ import com.campusfind.domain.model.LostItem
 import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,6 +36,8 @@ class UserProfileViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(UserProfileUiState())
     val uiState: StateFlow<UserProfileUiState> = _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     /**
      * Load current user's profile and their posted items
      */
@@ -46,9 +50,10 @@ class UserProfileViewModel @Inject constructor(
             return
         }
 
+        loadJob?.cancel()
         _uiState.update { it.copy(isLoading = true) }
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             try {
                 // Load user info
                 val user = userRepository.getUserById(userId)
@@ -92,6 +97,8 @@ class UserProfileViewModel @Inject constructor(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(

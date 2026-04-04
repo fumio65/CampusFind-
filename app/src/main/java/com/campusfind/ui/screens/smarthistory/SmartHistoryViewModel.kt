@@ -6,6 +6,8 @@ import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.repository.LostItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -22,10 +24,13 @@ class SmartHistoryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SmartHistoryUiState())
     val uiState: StateFlow<SmartHistoryUiState> = _uiState.asStateFlow()
 
+    private var historyJob: Job? = null
+
     init { loadHistory() }
 
     fun loadHistory() {
-        viewModelScope.launch {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 repository.getAllItems()
@@ -59,6 +64,8 @@ class SmartHistoryViewModel @Inject constructor(
                             )
                         }
                     }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load history") }
             }

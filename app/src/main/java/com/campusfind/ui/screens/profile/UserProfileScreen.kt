@@ -28,7 +28,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.theme.*
-import com.campusfind.ui.components.HeroBackButton
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -58,11 +57,10 @@ private fun UserProfileUiState.hasTrustScoreData(): Boolean =
 
 @Composable
 fun UserProfileScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToAddItem: () -> Unit,
-    onNavigateToHome: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onLogout: () -> Unit,
     viewModel: UserProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -101,7 +99,7 @@ fun UserProfileScreen(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
 
                     // ── Hero ───────────────────────────────────────────────
-                    item { ProfileHero(uiState = uiState, onNavigateBack = onNavigateBack, onNavigateToSettings = onNavigateToSettings) }
+                    item { ProfileHero(uiState = uiState, onNavigateToSettings = onNavigateToSettings) }
 
                     // ── Achievements ───────────────────────────────────────
                     if (uiState.hasAchievements()) {
@@ -120,8 +118,7 @@ fun UserProfileScreen(
                     item {
                         QuickActionsSection(
                             colors = colors,
-                            onNavigateToAddItem = onNavigateToAddItem,
-                            onNavigateToHome = onNavigateToHome
+                            onNavigateToAddItem = onNavigateToAddItem
                         )
                     }
 
@@ -172,7 +169,9 @@ fun UserProfileScreen(
                         }
                     }
 
-                    item { Spacer(Modifier.height(80.dp)) }
+                    item { LogoutSection(onLogout = onLogout, colors = colors) }
+
+                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }
@@ -186,7 +185,6 @@ fun UserProfileScreen(
 @Composable
 private fun ProfileHero(
     uiState: UserProfileUiState,
-    onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     Box(
@@ -210,9 +208,8 @@ private fun ProfileHero(
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(8.dp))
 
-            // Back + Settings
+            // Settings button (top-right)
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
-                HeroBackButton(onClick = onNavigateBack, modifier = Modifier.align(Alignment.CenterStart))
                 Surface(
                     onClick = onNavigateToSettings,
                     modifier = Modifier.size(36.dp).align(Alignment.CenterEnd),
@@ -558,15 +555,12 @@ private fun TrustMetric(value: String, label: String, color: Color, colors: AppC
 @Composable
 private fun QuickActionsSection(
     colors: AppColors,
-    onNavigateToAddItem: () -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToAddItem: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, start = 14.dp, end = 14.dp)) {
         SectionLabel("QUICK ACTIONS", colors)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuickActionCard("📢", "Post Item",  onNavigateToAddItem, colors, Modifier.weight(1f))
-            QuickActionCard("🔍", "My Items",  {},                  colors, Modifier.weight(1f))
-            QuickActionCard("📋", "Browse All", onNavigateToHome,   colors, Modifier.weight(1f))
+            QuickActionCard("📢", "Post Item", onNavigateToAddItem, colors, Modifier.weight(1f))
         }
     }
 }
@@ -784,6 +778,44 @@ private fun MessengerDialog(
                             fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// LOGOUT
+// ══════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun LogoutSection(onLogout: () -> Unit, colors: AppColors) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp, start = 14.dp, end = 14.dp)
+    ) {
+        Surface(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = ModernError.copy(alpha = 0.10f),
+            border = BorderStroke(1.dp, ModernError.copy(alpha = 0.30f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🚪", fontSize = 16.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Log Out",
+                    fontSize   = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = ModernError
+                )
             }
         }
     }

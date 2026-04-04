@@ -1,10 +1,8 @@
 package com.campusfind.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,15 +12,13 @@ import com.campusfind.data.local.preferences.SessionManager
 import com.campusfind.ui.screens.additem.AddItemScreen
 import com.campusfind.ui.screens.detail.DetailScreen
 import com.campusfind.ui.screens.edititem.EditItemScreen
-import com.campusfind.ui.screens.home.HomeScreen
 import com.campusfind.ui.screens.login.LoginScreen
+import com.campusfind.ui.screens.main.MainScreen
 import com.campusfind.ui.screens.notifications.NotificationScreen
 import com.campusfind.ui.screens.notifications.NotificationViewModel
 import com.campusfind.ui.screens.onboarding.OnboardingScreen
-import com.campusfind.ui.screens.profile.UserProfileScreen
 import com.campusfind.ui.screens.register.RegisterScreen
 import com.campusfind.ui.screens.settings.SettingsScreen
-import com.campusfind.ui.screens.smarthistory.SmartHistoryScreen
 import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen
 import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen
 
@@ -83,28 +79,22 @@ fun CampusFindNavGraph(
             )
         }
 
-        // ── Home ─────────────────────────────────────────────────────────────
-        // NotificationViewModel is created HERE at the backStackEntry level,
-        // not inside HomeScreen — this prevents the dual hiltViewModel() crash.
-        // unreadCount is passed as a plain Int parameter to HomeScreen.
+        // ── Main (Home + Smart History + Profile tabs) ────────────────────────
+        // NotificationViewModel is scoped to this backStackEntry so it survives
+        // tab switches without reloading. unreadCount is passed into MainScreen.
 
         composable(Screen.Home.route) { backStackEntry ->
             val notifViewModel: NotificationViewModel = hiltViewModel(backStackEntry)
-            val unreadCount by notifViewModel.unreadCount.collectAsStateWithLifecycle()
 
-            // Reload each time Home becomes visible so badge reflects
-            // any reads done inside NotificationScreen
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 notifViewModel.loadNotifications()
             }
 
-            HomeScreen(
+            MainScreen(
                 onNavigateToAddItem       = { navController.navigate(Screen.AddItem.route) },
                 onNavigateToDetail        = { navController.navigate(Screen.Detail.createRoute(it)) },
-                onNavigateToSettings      = { navController.navigate(Screen.Settings.route) },
-                onNavigateToProfile       = { navController.navigate(Screen.Profile.route) },
-                onNavigateToSmartHistory  = { navController.navigate(Screen.SmartHistory.route) },
                 onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
+                onNavigateToSettings      = { navController.navigate(Screen.Settings.route) },
                 onLogout = {
                     sessionManager.clearSession()
                     navController.navigate(Screen.Login.route) {
@@ -112,9 +102,9 @@ fun CampusFindNavGraph(
                         launchSingleTop = true
                     }
                 },
-                currentUserName             = sessionManager.currentUserName ?: "User",
-                currentUserEmail            = sessionManager.currentUserEmail ?: "user@university.edu",
-                unreadNotificationCount     = unreadCount
+                currentUserName  = sessionManager.currentUserName ?: "User",
+                currentUserEmail = sessionManager.currentUserEmail ?: "user@university.edu",
+                notifViewModel   = notifViewModel
             )
         }
 
@@ -175,27 +165,6 @@ fun CampusFindNavGraph(
                 },
                 currentUserName  = sessionManager.currentUserName ?: "User",
                 currentUserEmail = sessionManager.currentUserEmail ?: ""
-            )
-        }
-
-        // ── Profile ──────────────────────────────────────────────────────────
-
-        composable(Screen.Profile.route) {
-            UserProfileScreen(
-                onNavigateBack       = { navController.popBackStack() },
-                onNavigateToAddItem  = { navController.navigate(Screen.AddItem.route) },
-                onNavigateToHome     = { navController.popBackStack() },
-                onNavigateToDetail   = { navController.navigate(Screen.Detail.createRoute(it)) },
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
-            )
-        }
-
-        // ── Smart History ────────────────────────────────────────────────────
-
-        composable(Screen.SmartHistory.route) {
-            SmartHistoryScreen(
-                onNavigateBack     = { navController.popBackStack() },
-                onNavigateToDetail = { navController.navigate(Screen.Detail.createRoute(it)) }
             )
         }
 
