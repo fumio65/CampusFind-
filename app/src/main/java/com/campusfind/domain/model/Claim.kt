@@ -1,4 +1,3 @@
-// domain/model/Claim.kt
 package com.campusfind.domain.model
 
 data class Claim(
@@ -7,10 +6,11 @@ data class Claim(
     val claimerId: String,
     val claimerName: String,
     val message: String,
-    val photoUri: String?,
+    val photoUri: String?,          // first photo — backward compat
+    val photoUris: List<String> = emptyList(), // all photos — NEW
     val claimedAt: Long,
     val status: ClaimStatus,
-    val messengerUsername: String? = null  // ✅ NEW: Finder's messenger handle for deep link
+    val messengerUsername: String? = null
 )
 
 enum class ClaimStatus {
@@ -19,8 +19,6 @@ enum class ClaimStatus {
     REJECTED;
 
     companion object {
-        fun fromString(value: String): ClaimStatus {
-            return valueOf(value.uppercase())
-        }
+        fun fromString(value: String): ClaimStatus = valueOf(value.uppercase())
     }
 }

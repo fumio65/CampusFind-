@@ -20,7 +20,7 @@ import java.util.UUID
  *
  * Why foreign keys with CASCADE?
  * - When an item is deleted, all its claims are automatically deleted
- * - When a user is deleted, all their claims are deleted
+ * - When a user is deleted, all their claims are de'leted
  * - Maintains referential integrity
  *
  * Photo storage:

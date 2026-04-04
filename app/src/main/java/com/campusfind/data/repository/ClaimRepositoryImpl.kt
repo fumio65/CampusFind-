@@ -27,28 +27,57 @@ class ClaimRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ClaimRepository {
 
+    companion object {
+        // Delimiter for storing multiple photo paths in a single column
+        private const val PHOTO_DELIMITER = "|"
+    }
+
+    // ── submitClaim — accepts multiple photos ──────────────────────────────
+
     override suspend fun submitClaim(
         itemId: String,
         finderId: String,
         message: String,
-        photoUrl: String?
+        photoUrl: String?          // may be pipe-delimited e.g. "uri1|uri2|uri3"
+    ): Result<Unit> {
+        // Split pipe-delimited URIs if multiple were passed
+        val photoList = photoUrl
+            ?.split("|")
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+        return submitClaimWithPhotos(itemId, finderId, message, photoList)
+    }
+
+    // New overload used by IFoundThisItemSection — supports up to 3 photos
+    suspend fun submitClaimWithPhotos(
+        itemId: String,
+        finderId: String,
+        message: String,
+        photoUrls: List<String>    // list of content URIs from photo picker
     ): Result<Unit> {
         return try {
-            val savedPhotoPath = photoUrl?.let { uri ->
+            // Save each photo to internal storage
+            val savedPaths = photoUrls.mapNotNull { uri ->
                 savePhotoToInternalStorage(uri)
             }
 
-            if (photoUrl != null && savedPhotoPath == null) {
-                return Result.failure(Exception("Failed to save photo. Please try again."))
+            // Require at least one saved photo if any were provided
+            if (photoUrls.isNotEmpty() && savedPaths.isEmpty()) {
+                return Result.failure(Exception("Failed to save photos. Please try again."))
             }
 
+            // Store paths as pipe-delimited string — no schema change needed
+            val photoUriValue = if (savedPaths.isNotEmpty())
+                savedPaths.joinToString(PHOTO_DELIMITER)
+            else null
+
             val claim = ClaimEntity(
-                id = UUID.randomUUID().toString(),
-                itemId = itemId,
+                id        = UUID.randomUUID().toString(),
+                itemId    = itemId,
                 claimedBy = finderId,
-                message = message,
-                photoUri = savedPhotoPath,
-                status = "PENDING",
+                message   = message,
+                photoUri  = photoUriValue,   // e.g. "/files/c1.jpg|/files/c2.jpg|/files/c3.jpg"
+                status    = "PENDING",
                 claimedAt = System.currentTimeMillis()
             )
 
@@ -77,10 +106,10 @@ class ClaimRepositoryImpl @Inject constructor(
     override suspend fun deleteClaim(claimId: String): Result<Unit> {
         return try {
             val claim = claimDao.getClaimById(claimId)
-            claim?.photoUri?.let { photoPath ->
-                deletePhotoFile(photoPath)
+            // Delete all stored photo files
+            claim?.photoUri?.split(PHOTO_DELIMITER)?.forEach { path ->
+                deletePhotoFile(path)
             }
-
             claimDao.deleteClaim(claimId)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -88,9 +117,8 @@ class ClaimRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getClaimCountByItemId(itemId: String): Int {
-        return claimDao.getClaimCountByItemId(itemId)
-    }
+    override suspend fun getClaimCountByItemId(itemId: String): Int =
+        claimDao.getClaimCountByItemId(itemId)
 
     override suspend fun submitClaimReply(
         claimId: String,
@@ -99,13 +127,12 @@ class ClaimRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         return try {
             val reply = ClaimReplyEntity(
-                id = UUID.randomUUID().toString(),
-                claimId = claimId,
+                id       = UUID.randomUUID().toString(),
+                claimId  = claimId,
                 authorId = authorId,
-                message = message.trim(),
+                message  = message.trim(),
                 createdAt = System.currentTimeMillis()
             )
-
             claimReplyDao.insertReply(reply)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -113,71 +140,60 @@ class ClaimRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getRepliesByClaimId(claimId: String): Flow<List<ClaimReply>> {
-        return claimReplyDao.getRepliesByClaimId(claimId).map { entities ->
-            entities.map { it.toDomainModel() }
-        }
-    }
+    override fun getRepliesByClaimId(claimId: String): Flow<List<ClaimReply>> =
+        claimReplyDao.getRepliesByClaimId(claimId).map { it.map { e -> e.toDomainModel() } }
 
-    override suspend fun getReplyCountByClaimId(claimId: String): Int {
-        return claimReplyDao.getReplyCountByClaimId(claimId)
-    }
+    override suspend fun getReplyCountByClaimId(claimId: String): Int =
+        claimReplyDao.getReplyCountByClaimId(claimId)
 
-    private suspend fun savePhotoToInternalStorage(
-        contentUri: String
-    ): String? = withContext(Dispatchers.IO) {
-        try {
-            val uri = Uri.parse(contentUri)
-            val inputStream = context.contentResolver.openInputStream(uri)
+    // ── Internal helpers ───────────────────────────────────────────────────
 
-            if (inputStream == null) {
-                return@withContext null
+    private suspend fun savePhotoToInternalStorage(contentUri: String): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val uri = Uri.parse(contentUri)
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: return@withContext null
+
+                val fileName = "claim_${UUID.randomUUID()}.jpg"
+                val file = File(context.filesDir, fileName)
+                file.outputStream().use { inputStream.copyTo(it) }
+                inputStream.close()
+                file.absolutePath
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
             }
-
-            val fileName = "claim_${System.currentTimeMillis()}.jpg"
-            val file = File(context.filesDir, fileName)
-
-            file.outputStream().use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-            inputStream.close()
-
-            file.absolutePath
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
         }
-    }
 
     private suspend fun deletePhotoFile(filePath: String) = withContext(Dispatchers.IO) {
-        try {
-            val file = File(filePath)
-            if (file.exists()) {
-                file.delete()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        try { File(filePath).takeIf { it.exists() }?.delete() }
+        catch (e: Exception) { e.printStackTrace() }
     }
 
+    // ── Mapping ────────────────────────────────────────────────────────────
+
     private fun ClaimWithUserEntity.toDomainModel() = Claim(
-        id = id,
-        itemId = itemId,
-        claimerId = claimedBy,
-        claimerName = claimerName,
-        message = message,
-        photoUri = photoUri,
-        status = ClaimStatus.valueOf(status),
-        claimedAt = claimedAt,
+        id               = id,
+        itemId           = itemId,
+        claimerId        = claimedBy,
+        claimerName      = claimerName,
+        message          = message,
+        // Split pipe-delimited paths back into a list, expose first as photoUri
+        // for backward-compat; full list available via photoUris
+        photoUri         = photoUri?.split("|")?.firstOrNull(),
+        photoUris        = photoUri?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
+        status           = ClaimStatus.valueOf(status),
+        claimedAt        = claimedAt,
         messengerUsername = messengerUsername
     )
 
     private fun ClaimReplyWithUserEntity.toDomainModel() = ClaimReply(
-        id = id,
-        claimId = claimId,
-        authorId = authorId,
+        id         = id,
+        claimId    = claimId,
+        authorId   = authorId,
         authorName = authorName,
-        message = message,
-        createdAt = createdAt
+        message    = message,
+        createdAt  = createdAt
     )
 }
