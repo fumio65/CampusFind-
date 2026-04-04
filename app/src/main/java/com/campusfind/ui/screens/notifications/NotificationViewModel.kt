@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import android.content.SharedPreferences
+import com.campusfind.data.local.notifications.AppNotificationManager
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
@@ -77,8 +78,15 @@ class NotificationViewModel @Inject constructor(
     private val claimRepository: ClaimRepository,
     private val tipRepository: TipRepository,
     private val sessionManager: SessionManager,
-    private val prefs: SharedPreferences
+    private val prefs: SharedPreferences,
+    private val appNotificationManager: AppNotificationManager
 ) : ViewModel() {
+
+    // IDs that have already triggered a system notification this session.
+    // Seeded with all existing IDs on first load so stale notifications
+    // don't re-fire every time the app opens.
+    private val systemNotifiedIds = mutableSetOf<String>()
+    private var isFirstLoad = true
 
     // Persisted set of notification IDs the user has read.
     // Key is USER-SPECIFIC — cached at init so it never changes mid-session.
@@ -349,13 +357,27 @@ class NotificationViewModel @Inject constructor(
                         }
                     }
 
-                    // Sort newest first, remove duplicates
-                    // Re-apply persisted read state so tapped notifications stay read
+                    // Sort newest first, remove duplicates, re-apply persisted read state
                     val sorted = notifications
                         .distinctBy { it.id }
                         .map { if (readIds.contains(it.id)) it.copy(isRead = true) else it }
                         .sortedByDescending { it.timestamp }
                     val unread = sorted.count { !it.isRead }
+
+                    // Fire system notifications for items that appeared AFTER app launch.
+                    // On first load we just seed the known-ID set so nothing re-fires
+                    // for notifications that were already there when the user opened the app.
+                    if (isFirstLoad) {
+                        systemNotifiedIds.addAll(sorted.map { it.id })
+                        isFirstLoad = false
+                    } else {
+                        sorted
+                            .filter { !it.isRead && !systemNotifiedIds.contains(it.id) }
+                            .forEach { notif ->
+                                appNotificationManager.post(notif.id, notif.title, notif.message)
+                                systemNotifiedIds.add(notif.id)
+                            }
+                    }
 
                     _uiState.update {
                         it.copy(
