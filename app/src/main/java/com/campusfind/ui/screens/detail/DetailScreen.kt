@@ -28,7 +28,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -1264,25 +1266,129 @@ private fun PinnedVerifiedClaim(
                     if (onReply != null) {
                         when {
                             messageCount >= 2 && !messengerUsername.isNullOrBlank() -> {
-                                Box(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Brush.linearGradient(listOf(Color(0xFF0084ff).copy(0.1f), Color(0xFF00c6ff).copy(0.1f))))
-                                    .border(1.5.dp, Color(0xFF0ea870), RoundedCornerShape(8.dp))
-                                    .padding(10.dp)) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Text("💬", fontSize = 14.sp)
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text("Message on Messenger", fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold, color = Color(0xFF0084ff))
-                                            Text("@$messengerUsername", fontSize = 9.sp, color = Color(0xFF0084ff).copy(0.7f))
-                                        }
-                                        Text("→", fontSize = 14.sp, color = Color(0xFF0084ff))
+                                val clipboardManager = LocalClipboardManager.current
+                                var copied by remember { mutableStateOf(false) }
+
+                                // Reset "Copied!" back to normal after 2 seconds
+                                LaunchedEffect(copied) {
+                                    if (copied) {
+                                        kotlinx.coroutines.delay(2000)
+                                        copied = false
                                     }
                                 }
-                                Text("💡 2-message limit reached. Continue on Messenger to save server costs!",
-                                    fontSize = 8.sp, color = Color(0xFF666666), lineHeight = 10.sp,
-                                    modifier = Modifier.padding(top = 3.dp))
+
+                                Column(modifier = Modifier.padding(top = 8.dp)) {
+                                    // Header label
+                                    Text(
+                                        "💡 2-message limit reached — find them on Messenger",
+                                        fontSize = 9.sp,
+                                        color = if (colors.isDark) Color(0xFF9DE8C5) else Color(0xFF1a4a35),
+                                        lineHeight = 12.sp,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+
+                                    // Username card with copy button
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (colors.isDark) Color(0xFF0A1628) else Color(0xFFEEF4FF),
+                                        border = BorderStroke(1.dp,
+                                            if (colors.isDark) Color(0xFF0084ff).copy(0.3f)
+                                            else Color(0xFF0084ff).copy(0.2f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                // Messenger icon circle
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            Brush.linearGradient(
+                                                                listOf(Color(0xFF0084ff), Color(0xFF00c6ff))
+                                                            )
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text("💬", fontSize = 14.sp)
+                                                }
+                                                Column {
+                                                    Text(
+                                                        "Messenger Username",
+                                                        fontSize = 9.sp,
+                                                        color = colors.textMuted,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        "@$messengerUsername",
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF0084ff)
+                                                    )
+                                                }
+                                            }
+
+                                            // Copy button
+                                            Surface(
+                                                onClick = {
+                                                    clipboardManager.setText(
+                                                        AnnotatedString("@$messengerUsername")
+                                                    )
+                                                    copied = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (copied)
+                                                    ModernFound.copy(0.15f)
+                                                else
+                                                    Color(0xFF0084ff).copy(0.12f),
+                                                border = BorderStroke(
+                                                    1.dp,
+                                                    if (copied) ModernFound.copy(0.4f)
+                                                    else Color(0xFF0084ff).copy(0.3f)
+                                                )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 10.dp, vertical = 7.dp
+                                                    ),
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        if (copied) "✓" else "📋",
+                                                        fontSize = 11.sp
+                                                    )
+                                                    Text(
+                                                        if (copied) "Copied!" else "Copy",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (copied) ModernFound
+                                                        else Color(0xFF0084ff)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Instruction hint
+                                    Text(
+                                        "Paste the username in Messenger's search to contact the finder.",
+                                        fontSize = 9.sp,
+                                        color = colors.textMuted,
+                                        lineHeight = 13.sp,
+                                        modifier = Modifier.padding(top = 5.dp)
+                                    )
+                                }
                             }
                             userAlreadyReplied -> {
                                 Surface(modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
