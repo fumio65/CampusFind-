@@ -154,7 +154,8 @@ fun SmartHistoryScreen(
             DatePickerBottomSheet(
                 initialDate    = uiState.customDate,
                 onDateSelected = { viewModel.onCustomDateSelected(it) },
-                onDismiss      = { viewModel.onDatePickerDismissed() }
+                onDismiss      = { viewModel.onDatePickerDismissed() },
+                colors         = colors
             )
         }
     }
@@ -466,7 +467,8 @@ private fun DateRangeSegmented(
 fun DatePickerBottomSheet(
     initialDate: CustomDate?,
     onDateSelected: (CustomDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    colors: AppColors = LocalAppColors.current
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today      = Calendar.getInstance()
@@ -486,12 +488,12 @@ fun DatePickerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = sheetState,
-        containerColor   = Color.White,
+        containerColor   = colors.cardBg,
         dragHandle = {
             Box(modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center) {
                 Box(modifier = Modifier.width(36.dp).height(4.dp)
-                    .background(Color(0xFFDDDDDD), RoundedCornerShape(2.dp)))
+                    .background(colors.cardBorder, RoundedCornerShape(2.dp)))
             }
         }
     ) {
@@ -527,8 +529,8 @@ fun DatePickerBottomSheet(
                     Surface(onClick = {
                         if (viewMonth == 1) { viewMonth = 12; viewYear-- } else viewMonth--
                         selDay = null
-                    }, shape = CircleShape, color = Color(0xFFF0F0F0)) {
-                        Text("‹", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444),
+                    }, shape = CircleShape, color = colors.pillBg) {
+                        Text("‹", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                     }
                 } else { Spacer(Modifier.width(48.dp)) }
@@ -536,7 +538,7 @@ fun DatePickerBottomSheet(
                 Surface(
                     onClick = { showYearMonthPicker = !showYearMonthPicker },
                     shape   = RoundedCornerShape(12.dp),
-                    color   = if (showYearMonthPicker) ModernAccent.copy(0.12f) else Color(0xFFF5F5F5)
+                    color   = if (showYearMonthPicker) ModernAccent.copy(0.12f) else colors.inputBg
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -544,9 +546,9 @@ fun DatePickerBottomSheet(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text("$monthName $viewYear", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
-                            color = if (showYearMonthPicker) ModernAccent else Color(0xFF1a1a2e))
+                            color = if (showYearMonthPicker) ModernAccent else colors.textPrimary)
                         Text(if (showYearMonthPicker) "▲" else "▼", fontSize = 9.sp,
-                            color = if (showYearMonthPicker) ModernAccent else Color(0xFF999999))
+                            color = if (showYearMonthPicker) ModernAccent else colors.textMuted)
                     }
                 }
 
@@ -554,8 +556,8 @@ fun DatePickerBottomSheet(
                     Surface(onClick = {
                         if (viewMonth == 12) { viewMonth = 1; viewYear++ } else viewMonth++
                         selDay = null
-                    }, shape = CircleShape, color = Color(0xFFF0F0F0)) {
-                        Text("›", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444),
+                    }, shape = CircleShape, color = colors.pillBg) {
+                        Text("›", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                     }
                 } else { Spacer(Modifier.width(48.dp)) }
@@ -567,6 +569,7 @@ fun DatePickerBottomSheet(
                 YearMonthPicker(
                     currentYear  = viewYear,
                     currentMonth = viewMonth,
+                    colors       = colors,
                     onSelected   = { y, m -> viewYear = y; viewMonth = m; selDay = null; showYearMonthPicker = false }
                 )
             } else {
@@ -574,7 +577,7 @@ fun DatePickerBottomSheet(
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     listOf("Sun","Mon","Tue","Wed","Thu","Fri","Sat").forEach { d ->
                         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            Text(d, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFBBBBBB))
+                            Text(d, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textMuted)
                         }
                     }
                 }
@@ -613,7 +616,7 @@ fun DatePickerBottomSheet(
                                             color = when {
                                                 isSelected -> Color.White
                                                 isToday    -> ModernAccent
-                                                else       -> Color(0xFF333333)
+                                                else       -> colors.textPrimary
                                             }
                                         )
                                     }
@@ -635,8 +638,8 @@ fun DatePickerBottomSheet(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape  = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, Color(0xFFDDDDDD))
-                ) { Text("Cancel", color = Color(0xFF666666), fontWeight = FontWeight.SemiBold) }
+                    border = BorderStroke(1.dp, colors.cardBorder)
+                ) { Text("Cancel", color = colors.textSecondary, fontWeight = FontWeight.SemiBold) }
 
                 Button(
                     onClick  = { selDay?.let { onDateSelected(CustomDate(viewYear, viewMonth, it)) } },
@@ -651,10 +654,18 @@ fun DatePickerBottomSheet(
 }
 
 @Composable
-private fun YearMonthPicker(currentYear: Int, currentMonth: Int, onSelected: (Int, Int) -> Unit) {
+private fun YearMonthPicker(
+    currentYear: Int,
+    currentMonth: Int,
+    colors: AppColors,
+    onSelected: (Int, Int) -> Unit
+) {
     val today      = Calendar.getInstance()
     var pickerYear by remember { mutableStateOf(currentYear) }
     val monthNames = listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+
+    val monthActiveBg  = if (colors.isDark) Color(0xFF1C1B30) else Color(0xFFF0EFFF)
+    val monthDisabledBg = colors.pillBg.copy(alpha = if (colors.isDark) 0.4f else 0.6f)
 
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(
@@ -662,18 +673,19 @@ private fun YearMonthPicker(currentYear: Int, currentMonth: Int, onSelected: (In
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(onClick = { pickerYear-- }, shape = CircleShape, color = Color(0xFFF0F0F0)) {
-                Text("‹", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF444444),
+            Surface(onClick = { pickerYear-- }, shape = CircleShape, color = colors.pillBg) {
+                Text("‹", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             }
-            Text("$pickerYear", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1a1a2e))
+            Text("$pickerYear", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.textPrimary)
+            val canGoForward = pickerYear < today.get(Calendar.YEAR)
             Surface(
-                onClick = { if (pickerYear < today.get(Calendar.YEAR)) pickerYear++ },
+                onClick = { if (canGoForward) pickerYear++ },
                 shape = CircleShape,
-                color = if (pickerYear < today.get(Calendar.YEAR)) Color(0xFFF0F0F0) else Color(0xFFEEEEEE)
+                color = if (canGoForward) colors.pillBg else colors.pillBg.copy(alpha = 0.4f)
             ) {
                 Text("›", fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                    color = if (pickerYear < today.get(Calendar.YEAR)) Color(0xFF444444) else Color(0xFFCCCCCC),
+                    color = if (canGoForward) colors.textPrimary else colors.textMuted.copy(alpha = 0.4f),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             }
         }
@@ -698,18 +710,18 @@ private fun YearMonthPicker(currentYear: Int, currentMonth: Int, onSelected: (In
                         shape = RoundedCornerShape(10.dp),
                         color = when {
                             isSelected         -> ModernAccent
-                            isFuture || isPast -> Color(0xFFF8F8F8)
-                            else               -> Color(0xFFF0EFFF)
+                            isFuture || isPast -> monthDisabledBg
+                            else               -> monthActiveBg
                         },
-                        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFE8E8E8))
+                        border = if (isSelected) null else BorderStroke(1.dp, colors.cardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Text(name, fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = when {
                                     isSelected         -> Color.White
-                                    isFuture || isPast -> Color(0xFFCCCCCC)
-                                    else               -> Color(0xFF444444)
+                                    isFuture || isPast -> colors.textMuted.copy(alpha = 0.4f)
+                                    else               -> colors.textPrimary
                                 }
                             )
                         }
