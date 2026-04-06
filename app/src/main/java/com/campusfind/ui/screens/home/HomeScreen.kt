@@ -92,7 +92,6 @@ fun HomeScreen(
                 searchQuery           = searchQuery,
                 onSearchQueryChanged  = { searchQuery = it },
                 onFilterChanged       = { viewModel.onFilterChanged(it) },
-                onNavigateToProfile   = onNavigateToProfile,
                 onNavigateToNotifications = onNavigateToNotifications,
                 unreadCount           = unreadNotificationCount,
                 currentUserName       = currentUserName
@@ -211,7 +210,6 @@ fun GradientHero(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     onFilterChanged: (ItemStatus?) -> Unit,
-    onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     unreadCount: Int = 0,
     currentUserName: String = ""
@@ -276,31 +274,6 @@ fun GradientHero(
                         }
                     }
 
-                    // Avatar — shows first letter of name
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .shadow(6.dp, CircleShape, ambientColor = ModernAccent.copy(0.5f))
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Surface(
-                            onClick   = onNavigateToProfile,
-                            modifier  = Modifier.fillMaxSize(),
-                            color     = Color.Transparent,
-                            shape     = CircleShape
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = currentUserName.firstOrNull()?.uppercase() ?: "U",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
