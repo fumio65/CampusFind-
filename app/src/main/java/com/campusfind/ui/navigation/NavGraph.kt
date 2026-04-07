@@ -22,11 +22,23 @@ import com.campusfind.ui.screens.settings.SettingsScreen
 import com.campusfind.ui.screens.reviewclaims.ReviewClaimsScreen
 import com.campusfind.ui.screens.submitclaim.SubmitClaimScreen
 
+/**
+ * NavGraph.kt — Phase 2 (Firebase Auth)
+ *
+ * Change from Phase 1:
+ * - startDestination auth guard now uses SessionManager.isLoggedIn
+ *   which checks firebaseAuth.currentUser != null first
+ * - Logout now calls sessionManager.clearSession() which internally
+ *   calls firebaseAuth.signOut() — no other changes needed
+ *
+ * Everything else is identical to Phase 1.
+ */
 @Composable
 fun CampusFindNavGraph(
     navController: NavHostController,
     sessionManager: SessionManager
 ) {
+    // Auth guard — Firebase Auth state is checked inside isLoggedIn
     val startDestination = remember(
         sessionManager.hasCompletedOnboarding,
         sessionManager.isLoggedIn
@@ -69,7 +81,7 @@ fun CampusFindNavGraph(
 
         composable(Screen.Register.route) {
             RegisterScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack   = { navController.popBackStack() },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(0) { inclusive = true }
@@ -79,9 +91,7 @@ fun CampusFindNavGraph(
             )
         }
 
-        // ── Main (Home + Smart History + Profile tabs) ────────────────────────
-        // NotificationViewModel is scoped to this backStackEntry so it survives
-        // tab switches without reloading. unreadCount is passed into MainScreen.
+        // ── Main ─────────────────────────────────────────────────────────────
 
         composable(Screen.Home.route) { backStackEntry ->
             val notifViewModel: NotificationViewModel = hiltViewModel(backStackEntry)
@@ -96,13 +106,14 @@ fun CampusFindNavGraph(
                 onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                 onNavigateToSettings      = { navController.navigate(Screen.Settings.route) },
                 onLogout = {
+                    // clearSession() calls firebaseAuth.signOut() internally
                     sessionManager.clearSession()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
-                currentUserName  = sessionManager.currentUserName ?: "User",
+                currentUserName  = sessionManager.currentUserName  ?: "User",
                 currentUserEmail = sessionManager.currentUserEmail ?: "user@university.edu",
                 notifViewModel   = notifViewModel
             )
@@ -126,7 +137,7 @@ fun CampusFindNavGraph(
         // ── Detail ───────────────────────────────────────────────────────────
 
         composable(
-            route = Screen.Detail.route,
+            route     = Screen.Detail.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
@@ -135,14 +146,16 @@ fun CampusFindNavGraph(
                 onNavigateBack           = { navController.popBackStack() },
                 onNavigateToEdit         = { navController.navigate(Screen.EditItem.createRoute(it)) },
                 onNavigateToSubmitClaim  = { navController.navigate(Screen.SubmitClaim.createRoute(it)) },
-                onNavigateToReviewClaims = { itemId, itemTitle -> navController.navigate(Screen.ReviewClaims.createRoute(itemId, itemTitle)) }
+                onNavigateToReviewClaims = { id, title ->
+                    navController.navigate(Screen.ReviewClaims.createRoute(id, title))
+                }
             )
         }
 
         // ── Edit Item ────────────────────────────────────────────────────────
 
         composable(
-            route = Screen.EditItem.route,
+            route     = Screen.EditItem.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
@@ -163,7 +176,7 @@ fun CampusFindNavGraph(
                         launchSingleTop = true
                     }
                 },
-                currentUserName  = sessionManager.currentUserName ?: "User",
+                currentUserName  = sessionManager.currentUserName  ?: "User",
                 currentUserEmail = sessionManager.currentUserEmail ?: ""
             )
         }
@@ -171,7 +184,7 @@ fun CampusFindNavGraph(
         // ── Claims ───────────────────────────────────────────────────────────
 
         composable(
-            route = Screen.SubmitClaim.route,
+            route     = Screen.SubmitClaim.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
@@ -183,7 +196,7 @@ fun CampusFindNavGraph(
         }
 
         composable(
-            route = Screen.ReviewClaims.route,
+            route     = Screen.ReviewClaims.route,
             arguments = listOf(
                 navArgument("itemId")    { type = NavType.StringType },
                 navArgument("itemTitle") { type = NavType.StringType; defaultValue = "Lost Item" }

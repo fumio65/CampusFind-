@@ -18,7 +18,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -53,6 +55,7 @@ import com.campusfind.ui.theme.*
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +77,7 @@ fun DetailScreen(
     LaunchedEffect(itemId) { viewModel.loadItem(itemId) }
     LaunchedEffect(uiState.error) {
         if (uiState.error != null) {
-            kotlinx.coroutines.delay(3000)
+            delay(3000)
             viewModel.clearError()
         }
     }
@@ -85,6 +88,8 @@ fun DetailScreen(
             onDismiss = { viewModel.dismissLimitDialog() }
         )
     }
+
+    var isRefreshing by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(colors.screenBg)) {
         when {
@@ -106,7 +111,6 @@ fun DetailScreen(
 
                     // ── Hero image ─────────────────────────────────────────
                     Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-
                         Box(
                             modifier = Modifier.fillMaxSize().background(
                                 Brush.linearGradient(
@@ -234,134 +238,151 @@ fun DetailScreen(
                     ) {
                         MetaPill("📅", "REPORTED", formatDate(item.reportedAt), colors, modifier = Modifier.weight(1f))
                         MetaPill("🕐", "TIME",     formatTime(item.reportedAt), colors, modifier = Modifier.weight(1f))
-                        MetaPill("📍", "SYNC",     "Local", colors, ModernAccent, modifier = Modifier.weight(1f))
+                        MetaPill("📍", "SYNC",     "Live", colors, ModernAccent, modifier = Modifier.weight(1f))
                     }
 
-                    // ── Scrollable content ─────────────────────────────────
-                    Column(
-                        modifier = Modifier
-                            .weight(1f).background(colors.cardBg)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 14.dp)
-                    ) {
-                        Spacer(Modifier.height(14.dp))
-
-                        Text("DESCRIPTION", fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                            color = colors.textMuted, letterSpacing = 0.6.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(item.description, fontSize = 13.sp, color = colors.textPrimary, lineHeight = 19.sp)
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(9.dp))
-                                    .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text((uiState.reporterName ?: "U").firstOrNull()?.uppercase() ?: "U",
-                                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    // ── Scrollable content with Pull to Refresh ────────────
+                    val refreshScope = rememberCoroutineScope()
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh    = {
+                            refreshScope.launch {
+                                isRefreshing = true
+                                viewModel.refresh()
+                                kotlinx.coroutines.delay(1500)
+                                isRefreshing = false
                             }
-                            Column {
-                                Text("Posted by", fontSize = 10.sp, color = colors.textMuted)
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(uiState.reporterName ?: "Unknown", fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold, color = colors.textPrimary)
-                                    Text("· ${formatRelativeTime(item.reportedAt)}",
-                                        fontSize = 11.sp, color = colors.textMuted)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(colors.cardBg)
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 14.dp)
+                        ) {
+                            Spacer(Modifier.height(14.dp))
+
+                            Text("DESCRIPTION", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                color = colors.textMuted, letterSpacing = 0.6.sp)
+                            Spacer(Modifier.height(5.dp))
+                            Text(item.description, fontSize = 13.sp, color = colors.textPrimary, lineHeight = 19.sp)
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier.size(28.dp).clip(RoundedCornerShape(9.dp))
+                                        .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text((uiState.reporterName ?: "U").firstOrNull()?.uppercase() ?: "U",
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Column {
+                                    Text("Posted by", fontSize = 10.sp, color = colors.textMuted)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(uiState.reporterName ?: "Unknown", fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                        Text("· ${formatRelativeTime(item.reportedAt)}",
+                                            fontSize = 11.sp, color = colors.textMuted)
+                                    }
                                 }
                             }
-                        }
 
-                        Spacer(Modifier.height(10.dp))
-                        HorizontalDivider(color = colors.cardBorder)
-                        Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(color = colors.cardBorder)
+                            Spacer(Modifier.height(10.dp))
 
-                        // Inline claim submission
-                        if (!uiState.isOwner && item.status == ItemStatus.LOST) {
-                            val hasPending  = uiState.claims.any { it.status == ClaimStatus.PENDING }
-                            val hasApproved = uiState.claims.any { it.status == ClaimStatus.APPROVED }
-                            when {
-                                hasPending -> {
-                                    val warningBg     = if (colors.isDark) Color(0xFF1A1000) else Color(0xFFFFF4E6)
-                                    val warningBorder = if (colors.isDark) Color(0xFFFFB74D).copy(0.28f) else Color(0xFFFFE0B2)
-                                    val warningColor  = Color(0xFFFFB74D)
-                                    val warningText   = if (colors.isDark) Color(0xFFFFB74D).copy(0.65f) else Color(0xFF6D4C41)
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = warningBg, border = BorderStroke(1.dp, warningBorder)
-                                    ) {
-                                        Row(modifier = Modifier.padding(12.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
-                                                .background(warningColor.copy(0.15f)),
-                                                contentAlignment = Alignment.Center) {
-                                                Text("⏳", fontSize = 16.sp)
-                                            }
-                                            Column {
-                                                Text("Claim Under Review", fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold, color = warningColor)
-                                                Text("The reporter is reviewing a claim.",
-                                                    fontSize = 10.sp, color = warningText, lineHeight = 14.sp)
+                            // Inline claim submission
+                            if (!uiState.isOwner && item.status == ItemStatus.LOST) {
+                                val hasPending  = uiState.claims.any { it.status == ClaimStatus.PENDING }
+                                val hasApproved = uiState.claims.any { it.status == ClaimStatus.APPROVED }
+                                when {
+                                    hasPending -> {
+                                        val warningBg     = if (colors.isDark) Color(0xFF1A1000) else Color(0xFFFFF4E6)
+                                        val warningBorder = if (colors.isDark) Color(0xFFFFB74D).copy(0.28f) else Color(0xFFFFE0B2)
+                                        val warningColor  = Color(0xFFFFB74D)
+                                        val warningText   = if (colors.isDark) Color(0xFFFFB74D).copy(0.65f) else Color(0xFF6D4C41)
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = warningBg, border = BorderStroke(1.dp, warningBorder)
+                                        ) {
+                                            Row(modifier = Modifier.padding(12.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically) {
+                                                Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
+                                                    .background(warningColor.copy(0.15f)),
+                                                    contentAlignment = Alignment.Center) {
+                                                    Text("⏳", fontSize = 16.sp)
+                                                }
+                                                Column {
+                                                    Text("Claim Under Review", fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold, color = warningColor)
+                                                    Text("The reporter is reviewing a claim.",
+                                                        fontSize = 10.sp, color = warningText, lineHeight = 14.sp)
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                !hasApproved -> {
-                                    IFoundThisItemSection(onSubmit = { location, photoUri ->
-                                        viewModel.submitClaimInline(location, photoUri)
-                                    })
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                        }
-
-                        // Claims
-                        if (uiState.claims.isNotEmpty()) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                                uiState.claims.forEach { claim ->
-                                    when (claim.status) {
-                                        ClaimStatus.APPROVED -> PinnedVerifiedClaim(
-                                            claim             = claim,
-                                            isOwner           = uiState.isOwner,
-                                            onReply           = { viewModel.replyToClaim(claim.id, it) },
-                                            messengerUsername = claim.messengerUsername,
-                                            messageCount      = viewModel.getReplyCount(claim.id),
-                                            replies           = viewModel.getReplies(claim.id),
-                                            currentUserId     = viewModel.getCurrentUserId()
-                                        )
-                                        ClaimStatus.PENDING -> PendingClaimCard(
-                                            claim         = claim,
-                                            isOwner       = uiState.isOwner,
-                                            currentUserId = viewModel.getCurrentUserId(),
-                                            onApprove     = { viewModel.approveClaim(claim.id) },
-                                            onReject      = { viewModel.rejectClaim(claim.id) },
-                                            onWithdraw    = { viewModel.withdrawClaim(claim.id) }
-                                        )
-                                        ClaimStatus.REJECTED -> { /* hidden */ }
+                                    !hasApproved -> {
+                                        IFoundThisItemSection(onSubmit = { location, photoUri ->
+                                            viewModel.submitClaimInline(location, photoUri)
+                                        })
                                     }
-                                    Spacer(Modifier.height(6.dp))
                                 }
+                                Spacer(Modifier.height(12.dp))
                             }
-                            Spacer(Modifier.height(16.dp))
+
+                            // Claims
+                            if (uiState.claims.isNotEmpty()) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                    uiState.claims.forEach { claim ->
+                                        when (claim.status) {
+                                            ClaimStatus.APPROVED -> PinnedVerifiedClaim(
+                                                claim             = claim,
+                                                isOwner           = uiState.isOwner,
+                                                onReply           = { viewModel.replyToClaim(claim.id, it) },
+                                                messengerUsername = claim.messengerUsername,
+                                                messageCount      = viewModel.getReplyCount(claim.id),
+                                                replies           = viewModel.getReplies(claim.id),
+                                                currentUserId     = viewModel.getCurrentUserId()
+                                            )
+                                            ClaimStatus.PENDING -> PendingClaimCard(
+                                                claim         = claim,
+                                                isOwner       = uiState.isOwner,
+                                                currentUserId = viewModel.getCurrentUserId(),
+                                                onApprove     = { viewModel.approveClaim(claim.id) },
+                                                onReject      = { viewModel.rejectClaim(claim.id) },
+                                                onWithdraw    = { viewModel.withdrawClaim(claim.id) }
+                                            )
+                                            ClaimStatus.REJECTED -> { /* hidden */ }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                    }
+                                }
+                                Spacer(Modifier.height(16.dp))
+                            }
+
+                            PublicTipsSection(
+                                tips          = uiState.tips,
+                                tipCount      = uiState.tipCount,
+                                isOwner       = uiState.isOwner,
+                                hasUserTipped = uiState.hasUserTipped,
+                                currentUserId = viewModel.getCurrentUserId(),
+                                reportOwnerId = item.reportedBy,
+                                colors        = colors,
+                                onSubmitTip   = { viewModel.submitTip(it) },
+                                onSubmitReply = { tipId, msg -> viewModel.submitReply(tipId, msg) }
+                            )
+
+                            Spacer(Modifier.height(80.dp))
                         }
 
-                        PublicTipsSection(
-                            tips          = uiState.tips,
-                            tipCount      = uiState.tipCount,
-                            isOwner       = uiState.isOwner,
-                            hasUserTipped = uiState.hasUserTipped,
-                            currentUserId = viewModel.getCurrentUserId(),
-                            reportOwnerId = item.reportedBy,
-                            colors        = colors,
-                            onSubmitTip   = { viewModel.submitTip(it) },
-                            onSubmitReply = { tipId, msg -> viewModel.submitReply(tipId, msg) }
-                        )
 
-                        Spacer(Modifier.height(80.dp))
                     }
                 }
 
@@ -681,7 +702,19 @@ fun TipCard(
                     }
                     Text(tip.message, fontSize = 10.sp, color = colors.textSecondary,
                         lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp))
-                    if (isReportOwner && tip.authorId != currentUserId) {
+
+                    val hasReporterReplied    = replies.any { it.authorId == reportOwnerId }
+                    val hasUserAlreadyReplied = replies.any { it.authorId == currentUserId }
+
+                    val canReply = when {
+                        tip.authorId == currentUserId -> false
+                        hasUserAlreadyReplied         -> false
+                        isReportOwner                 -> true
+                        hasReporterReplied            -> true
+                        else                          -> false
+                    }
+
+                    if (canReply) {
                         Row(modifier = Modifier.padding(top = 5.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -693,7 +726,10 @@ fun TipCard(
                                     color = ModernAccent,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                             }
-                            Text("only you can reply", fontSize = 9.sp, color = colors.textMuted)
+                            Text(
+                                if (isReportOwner) "only you can reply" else "reply to reporter",
+                                fontSize = 9.sp, color = colors.textMuted
+                            )
                         }
                     }
                 }
@@ -793,11 +829,9 @@ private fun IFoundThisItemSection(onSubmit: (String, String?) -> Unit, modifier:
     val titleColor = if (colors.isDark) ModernFound       else Color(0xFF0a5c3c)
     val photoBg    = if (colors.isDark) colors.pillBg     else Color.White.copy(0.6f)
 
-    Box(
-        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp)).background(cardBg)
-            .border(1.5.dp, cardBorder, RoundedCornerShape(12.dp)).padding(10.dp)
-    ) {
+    Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)
+        .clip(RoundedCornerShape(12.dp)).background(cardBg)
+        .border(1.5.dp, cardBorder, RoundedCornerShape(12.dp)).padding(10.dp)) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -929,8 +963,7 @@ private fun PinnedVerifiedClaim(
 
     Box(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)
         .clip(RoundedCornerShape(14.dp)).background(cardBg)
-        .border(1.dp, cardBorder, RoundedCornerShape(14.dp)).padding(12.dp)
-    ) {
+        .border(1.dp, cardBorder, RoundedCornerShape(14.dp)).padding(12.dp)) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -942,7 +975,6 @@ private fun PinnedVerifiedClaim(
 
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 VerifiedClaimerAvatar(name = claim.claimerName)
-
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -962,7 +994,6 @@ private fun PinnedVerifiedClaim(
                     Text(claim.message, fontSize = 10.sp, color = msgColor, lineHeight = 14.sp,
                         modifier = Modifier.padding(bottom = 5.dp))
 
-                    // Photos
                     val allPhotos = claim.photoUris.ifEmpty { listOfNotNull(claim.photoUri) }
                     if (allPhotos.isNotEmpty()) {
                         var selectedPhoto by remember { mutableStateOf(allPhotos.first()) }
@@ -983,7 +1014,6 @@ private fun PinnedVerifiedClaim(
                         }
                     }
 
-                    // Replies thread
                     if (replies.isNotEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1013,51 +1043,39 @@ private fun PinnedVerifiedClaim(
                         }
                     }
 
-                    // Reply controls
                     if (onReply != null) {
                         when {
-                            // ── Messenger card — PRIVATE: only reporter or claimer ──
-                            messageCount >= 2
-                                    && !messengerUsername.isNullOrBlank()
+                            messageCount >= 2 && !messengerUsername.isNullOrBlank()
                                     && (isOwner || currentUserId == claim.claimerId) -> {
-
                                 val clipboardManager = LocalClipboardManager.current
                                 var copied by remember { mutableStateOf(false) }
                                 LaunchedEffect(copied) {
-                                    if (copied) { kotlinx.coroutines.delay(2000); copied = false }
+                                    if (copied) { delay(2000); copied = false }
                                 }
-
                                 Column(modifier = Modifier.padding(top = 8.dp)) {
-                                    Text(
-                                        "💡 2-message limit reached — find them on Messenger",
+                                    Text("💡 2-message limit reached — find them on Messenger",
                                         fontSize = 9.sp,
                                         color = if (colors.isDark) Color(0xFF9DE8C5) else Color(0xFF1a4a35),
-                                        lineHeight = 12.sp,
-                                        modifier = Modifier.padding(bottom = 6.dp)
-                                    )
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        lineHeight = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+                                    Surface(modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
                                         color = if (colors.isDark) Color(0xFF0A1628) else Color(0xFFEEF4FF),
                                         border = BorderStroke(1.dp,
                                             if (colors.isDark) Color(0xFF0084ff).copy(0.3f)
-                                            else Color(0xFF0084ff).copy(0.2f))
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            else Color(0xFF0084ff).copy(0.2f))) {
+                                        Row(modifier = Modifier.fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
                                             horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
+                                            verticalAlignment = Alignment.CenterVertically) {
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 modifier = Modifier.weight(1f)) {
-                                                Box(
-                                                    modifier = Modifier.size(32.dp).clip(CircleShape)
-                                                        .background(Brush.linearGradient(
-                                                            listOf(Color(0xFF0084ff), Color(0xFF00c6ff)))),
-                                                    contentAlignment = Alignment.Center
-                                                ) { Text("💬", fontSize = 14.sp) }
+                                                Box(modifier = Modifier.size(32.dp).clip(CircleShape)
+                                                    .background(Brush.linearGradient(
+                                                        listOf(Color(0xFF0084ff), Color(0xFF00c6ff)))),
+                                                    contentAlignment = Alignment.Center) {
+                                                    Text("💬", fontSize = 14.sp)
+                                                }
                                                 Column {
                                                     Text("Messenger Username", fontSize = 9.sp,
                                                         color = colors.textMuted, fontWeight = FontWeight.Medium)
@@ -1071,11 +1089,9 @@ private fun PinnedVerifiedClaim(
                                                     copied = true
                                                 },
                                                 shape = RoundedCornerShape(8.dp),
-                                                color = if (copied) ModernFound.copy(0.15f)
-                                                else Color(0xFF0084ff).copy(0.12f),
+                                                color = if (copied) ModernFound.copy(0.15f) else Color(0xFF0084ff).copy(0.12f),
                                                 border = BorderStroke(1.dp,
-                                                    if (copied) ModernFound.copy(0.4f)
-                                                    else Color(0xFF0084ff).copy(0.3f))
+                                                    if (copied) ModernFound.copy(0.4f) else Color(0xFF0084ff).copy(0.3f))
                                             ) {
                                                 Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1088,11 +1104,9 @@ private fun PinnedVerifiedClaim(
                                             }
                                         }
                                     }
-                                    Text(
-                                        "Paste the username in Messenger's search to contact the finder.",
+                                    Text("Paste the username in Messenger's search to contact the finder.",
                                         fontSize = 9.sp, color = colors.textMuted,
-                                        lineHeight = 13.sp, modifier = Modifier.padding(top = 5.dp)
-                                    )
+                                        lineHeight = 13.sp, modifier = Modifier.padding(top = 5.dp))
                                 }
                             }
                             userAlreadyReplied -> {
@@ -1110,7 +1124,6 @@ private fun PinnedVerifiedClaim(
                                     color = Color(0xFF888888), modifier = Modifier.padding(top = 3.dp))
                             }
                             else -> {
-                                // Only reporter or claimer can reply — not random users
                                 if (isOwner || currentUserId == claim.claimerId) {
                                     Row(modifier = Modifier.padding(top = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1132,7 +1145,6 @@ private fun PinnedVerifiedClaim(
                 }
             }
 
-            // Reply input — only reporter or claimer can send
             if (showReplyInput && onReply != null && messageCount < 2
                 && !userAlreadyReplied
                 && (isOwner || currentUserId == claim.claimerId)) {
@@ -1220,8 +1232,7 @@ private fun PendingClaimCard(
             HorizontalDivider(color = colors.cardBorder)
             Spacer(Modifier.height(10.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                 Box(modifier = Modifier.size(36.dp).clip(CircleShape)
                     .background(ModernAccent.copy(0.15f)), contentAlignment = Alignment.Center) {
                     Text(claim.claimerName.firstOrNull()?.uppercase() ?: "?",
@@ -1231,8 +1242,7 @@ private fun PendingClaimCard(
                     Text(claim.claimerName, fontSize = 13.sp,
                         fontWeight = FontWeight.Bold, color = colors.textPrimary)
                     Spacer(Modifier.height(4.dp))
-                    Text(claim.message, fontSize = 12.sp,
-                        color = colors.textSecondary, lineHeight = 17.sp)
+                    Text(claim.message, fontSize = 12.sp, color = colors.textSecondary, lineHeight = 17.sp)
 
                     val allPhotos = claim.photoUris.ifEmpty { listOfNotNull(claim.photoUri) }
                     if (allPhotos.isNotEmpty()) {
@@ -1245,8 +1255,7 @@ private fun PendingClaimCard(
                             Text("PROOF PHOTOS (${allPhotos.size})", fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold, color = colors.textMuted, letterSpacing = 0.5.sp)
                         }
-                        Row(modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             allPhotos.forEachIndexed { index, uri ->
                                 Box(modifier = Modifier.weight(1f)
                                     .height(if (allPhotos.size == 1) 160.dp else 110.dp)
@@ -1269,18 +1278,15 @@ private fun PendingClaimCard(
 
                     if (isOwner) {
                         Spacer(Modifier.height(12.dp))
-                        Row(modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Surface(onClick = onReject, modifier = Modifier.weight(1f).height(40.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                color = ModernLost.copy(0.08f),
+                                shape = RoundedCornerShape(10.dp), color = ModernLost.copy(0.08f),
                                 border = BorderStroke(1.dp, ModernLost.copy(0.35f))) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
                                         Text("✕", fontSize = 12.sp, color = ModernLost)
-                                        Text("Reject", fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold, color = ModernLost)
+                                        Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ModernLost)
                                     }
                                 }
                             }
@@ -1291,8 +1297,7 @@ private fun PendingClaimCard(
                                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
                                     Text("✓", fontSize = 12.sp, color = Color.White)
-                                    Text("Approve", fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("Approve", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
                         }

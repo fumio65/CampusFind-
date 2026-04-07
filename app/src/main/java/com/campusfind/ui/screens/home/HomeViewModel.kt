@@ -57,6 +57,7 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private val _selectedFilter = MutableStateFlow<ItemStatus?>(null)
+    private val _refreshKey = MutableStateFlow(0)
 
     init {
         observeItems()
@@ -75,9 +76,12 @@ class HomeViewModel @Inject constructor(
      */
     private fun observeItems() {
         viewModelScope.launch {
-            _selectedFilter
+            combine(_selectedFilter, _refreshKey) { filter, _ -> filter }
                 .flatMapLatest { filter ->
-                    _uiState.update { it.copy(isLoading = true) }
+                    // Show full-screen spinner only on initial load (no items yet)
+                    _uiState.update { state ->
+                        state.copy(isLoading = state.items.isEmpty())
+                    }
                     if (filter == null) {
                         repository.getAllItems()
                     } else {
@@ -93,13 +97,11 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 .collect { items ->
-                    // Load reporter names for all unique user IDs
                     val reporterNames = loadReporterNames(items.map { it.reportedBy }.distinct())
-
                     _uiState.update {
                         it.copy(
                             items = items,
-                            reporterNames = reporterNames,  // ← NEW
+                            reporterNames = reporterNames,
                             isLoading = false,
                             error = null
                         )
@@ -137,5 +139,9 @@ class HomeViewModel @Inject constructor(
     fun onFilterChanged(filter: ItemStatus?) {
         _selectedFilter.value = filter
         _uiState.update { it.copy(selectedFilter = filter) }
+    }
+
+    fun refresh() {
+        _refreshKey.value++
     }
 }
