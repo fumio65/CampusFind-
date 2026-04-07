@@ -32,7 +32,6 @@ interface LostItemDao {
     """)
     suspend fun updateItemStatus(id: String, status: String, timestamp: Long)
 
-    // ✅ NEW: Update with location support
     @Query("""
         UPDATE lost_items 
         SET title = :title,
@@ -48,6 +47,14 @@ interface LostItemDao {
         location: String?,
         timestamp: Long
     )
+
+    @Query("""
+        UPDATE lost_items
+        SET photo_uri = :photoUri,
+            last_modified_at = :timestamp
+        WHERE id = :id
+    """)
+    suspend fun updatePhotoUri(id: String, photoUri: String, timestamp: Long)
 
     @Query("DELETE FROM lost_items WHERE id = :id")
     suspend fun deleteItem(id: String)

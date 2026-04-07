@@ -28,36 +28,36 @@ class LostItemRepositoryImpl @Inject constructor(
     override fun getItemsByUser(userId: String): Flow<List<LostItem>> =
         dao.getItemsByUser(userId).map { list -> list.map { it.toDomain() } }
 
-    // ✅ UPDATED: Now accepts location parameter
+    // ← Result<String> returning itemId to match interface
     override suspend fun addItem(
         title: String,
         description: String,
         location: String?,
         photoUri: String?
-    ): Result<Unit> {
+    ): Result<String> {
         return try {
             val currentUserId = sessionManager.currentUserId
                 ?: return Result.failure(Exception("Not logged in"))
 
+            val itemId = UUID.randomUUID().toString()
             val entity = LostItemEntity(
-                id = UUID.randomUUID().toString(),
-                title = title,
-                description = description,
-                location = location,  // ✅ NEW
-                status = "LOST",
-                reportedBy = currentUserId,
-                reportedAt = System.currentTimeMillis(),
+                id             = itemId,
+                title          = title,
+                description    = description,
+                location       = location,
+                status         = "LOST",
+                reportedBy     = currentUserId,
+                reportedAt     = System.currentTimeMillis(),
                 lastModifiedAt = System.currentTimeMillis(),
-                photoUri = photoUri
+                photoUri       = photoUri
             )
             dao.insertItem(entity)
-            Result.success(Unit)
+            Result.success(itemId)   // ← return itemId
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // ✅ UPDATED: Now accepts location parameter
     override suspend fun updateItemDetails(
         id: String,
         title: String,
@@ -66,7 +66,6 @@ class LostItemRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         return try {
             val timestamp = System.currentTimeMillis()
-            // Note: You'll need to add this method to LostItemDao
             dao.updateItemDetailsWithLocation(id, title, description, location, timestamp)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -84,6 +83,17 @@ class LostItemRepositoryImpl @Inject constructor(
         }
     }
 
+    // ← NEW: updatePhotoUri to match interface
+    override suspend fun updatePhotoUri(id: String, photoUri: String): Result<Unit> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+            dao.updatePhotoUri(id, photoUri, timestamp)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun deleteItem(id: String): Result<Unit> {
         return try {
             dao.deleteItem(id)
@@ -93,16 +103,15 @@ class LostItemRepositoryImpl @Inject constructor(
         }
     }
 
-    // ✅ UPDATED: Mapping includes location
     private fun LostItemEntity.toDomain() = LostItem(
-        id = id,
-        title = title,
-        description = description,
-        location = location,  // ✅ NEW
-        status = ItemStatus.valueOf(status),
-        reportedBy = reportedBy,
-        reportedAt = reportedAt,
+        id             = id,
+        title          = title,
+        description    = description,
+        location       = location,
+        status         = ItemStatus.valueOf(status),
+        reportedBy     = reportedBy,
+        reportedAt     = reportedAt,
         lastModifiedAt = lastModifiedAt,
-        photoUri = photoUri
+        photoUri       = photoUri
     )
 }

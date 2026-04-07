@@ -10,21 +10,22 @@ interface LostItemRepository {
     suspend fun getItemById(id: String): LostItem?
     fun getItemsByUser(userId: String): Flow<List<LostItem>>
 
-    // ✅ UPDATED: Now includes location parameter
+    // Returns item ID on success so caller can update photoUri after upload
     suspend fun addItem(
         title: String,
         description: String,
-        location: String? = null,  // NEW
+        location: String? = null,
         photoUri: String? = null
-    ): Result<Unit>
+    ): Result<String>   // ← changed from Result<Unit> to Result<String> (itemId)
 
     suspend fun updateItemDetails(
         id: String,
         title: String,
         description: String,
-        location: String? = null  // NEW
+        location: String? = null
     ): Result<Unit>
 
     suspend fun updateItemStatus(id: String, status: ItemStatus): Result<Unit>
+    suspend fun updatePhotoUri(id: String, photoUri: String): Result<Unit>  // ← NEW
     suspend fun deleteItem(id: String): Result<Unit>
 }
