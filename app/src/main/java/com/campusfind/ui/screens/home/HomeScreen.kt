@@ -98,7 +98,7 @@ fun HomeScreen(
             val refreshScope = rememberCoroutineScope()
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
-                onRefresh    = {
+                onRefresh = {
                     refreshScope.launch {
                         isRefreshing = true
                         viewModel.refresh()
@@ -144,11 +144,9 @@ fun HomeScreen(
                         }
                     }
                 }
-
             }
         }
 
-        // ── FAB ────────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -169,10 +167,6 @@ fun HomeScreen(
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// EMPTY STATE
-// ══════════════════════════════════════════════════════════════════════════
-
 @Composable
 private fun EmptyState(icon: String, title: String, subtitle: String, colors: AppColors) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -187,10 +181,6 @@ private fun EmptyState(icon: String, title: String, subtitle: String, colors: Ap
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// HERO
-// ══════════════════════════════════════════════════════════════════════════
-
 @Composable
 fun GradientHero(
     itemCount: Int, selectedFilter: ItemStatus?,
@@ -200,12 +190,10 @@ fun GradientHero(
     onNavigateToNotifications: () -> Unit,
     unreadCount: Int = 0, currentUserName: String = ""
 ) {
-    Box(
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(Brush.linearGradient(
-                colors = listOf(Color(0xFF12101E), Color(0xFF1E1340), Color(0xFF0E1F18))))
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+        .background(Brush.linearGradient(
+            colors = listOf(Color(0xFF12101E), Color(0xFF1E1340), Color(0xFF0E1F18))))) {
         Box(modifier = Modifier.size(180.dp).offset(x = 200.dp, y = (-40).dp)
             .background(ModernAccent.copy(alpha = 0.15f), CircleShape))
         Box(modifier = Modifier.size(100.dp).offset(x = 240.dp, y = 20.dp)
@@ -249,9 +237,8 @@ fun GradientHero(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(6.dp)
                         .background(if (itemCount > 0) ModernLost else ModernFound, CircleShape))
-                    Text(
-                        if (itemCount > 0) "$itemCount item${if (itemCount > 1) "s" else ""} reported on campus"
-                        else "No active reports — campus is clear!",
+                    Text(if (itemCount > 0) "$itemCount item${if (itemCount > 1) "s" else ""} reported on campus"
+                    else "No active reports — campus is clear!",
                         fontSize = 12.sp, color = Color.White.copy(alpha = 0.65f))
                 }
             }
@@ -348,7 +335,7 @@ private fun FilterChipModern(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// ITEM CARD
+// ITEM CARD — fixed photo loading for both Supabase HTTPS URLs and local paths
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -368,16 +355,26 @@ fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
             defaultElevation = if (colors.isDark) 0.dp else 4.dp)) {
         Column {
             Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                val hasPhoto  = !item.photoUri.isNullOrBlank()
-                val photoFile = if (hasPhoto) remember(item.photoUri) { File(item.photoUri!!) } else null
+                val photoUri      = item.photoUri
+                val isHttpsUrl    = photoUri?.startsWith("http") == true
+                val localFile     = if (!photoUri.isNullOrBlank() && !isHttpsUrl)
+                    remember(photoUri) { File(photoUri) } else null
+                val hasValidPhoto = isHttpsUrl || (localFile?.exists() == true)
+                // For HTTPS: pass the URL string directly to Coil
+                // For local: pass the File object
+                val imageModel    = if (isHttpsUrl) photoUri else localFile
 
-                if (hasPhoto && photoFile?.exists() == true) {
-                    Image(painter = rememberAsyncImagePainter(photoFile),
+                if (hasValidPhoto && imageModel != null) {
+                    Image(
+                        painter            = rememberAsyncImagePainter(imageModel),
                         contentDescription = "Item photo",
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                        contentScale = ContentScale.Crop)
+                        modifier           = Modifier.fillMaxSize()
+                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                        contentScale       = ContentScale.Crop
+                    )
                     Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(
-                        0f to Color.Transparent, 0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.5f))))
+                        0f to Color.Transparent, 0.6f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.5f))))
                 } else {
                     GradientPlaceholder(modifier = Modifier.fillMaxSize()
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)))
@@ -385,7 +382,8 @@ fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
 
                 Box(modifier = Modifier.padding(12.dp).align(Alignment.TopStart)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Brush.linearGradient(listOf(statusColor.copy(0.85f), statusColor.copy(0.7f))))) {
+                    .background(Brush.linearGradient(
+                        listOf(statusColor.copy(0.85f), statusColor.copy(0.7f))))) {
                     Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {

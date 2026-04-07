@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.campusfind.data.local.photo.PhotoManager
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.data.network.ConnectivityObserver
 import com.google.firebase.auth.FirebaseAuth
 import dagger.Module
 import dagger.Provides
@@ -12,20 +13,21 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * AppModule.kt — Phase 2
- *
- * Change from Phase 1:
- * - provideSessionManager now injects FirebaseAuth
- *   so SessionManager can use Firebase UID as the source of truth
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
     @Provides
     @Singleton
-    fun provideSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSharedPreferences(
+        @ApplicationContext context: Context
+    ): SharedPreferences {
         return context.getSharedPreferences("campusfind_prefs", Context.MODE_PRIVATE)
     }
 
@@ -33,14 +35,24 @@ object AppModule {
     @Singleton
     fun provideSessionManager(
         prefs: SharedPreferences,
-        firebaseAuth: FirebaseAuth          // ← NEW: Firebase Auth injected
+        firebaseAuth: FirebaseAuth
     ): SessionManager {
         return SessionManager(prefs, firebaseAuth)
     }
 
     @Provides
     @Singleton
-    fun providePhotoManager(@ApplicationContext context: Context): PhotoManager {
+    fun providePhotoManager(
+        @ApplicationContext context: Context
+    ): PhotoManager {
         return PhotoManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectivityObserver(
+        @ApplicationContext context: Context
+    ): ConnectivityObserver {
+        return ConnectivityObserver(context)
     }
 }

@@ -14,19 +14,6 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 
-/**
- * FirestoreLostItemRepositoryImpl.kt
- *
- * Extends LostItemRepositoryImpl with Firestore sync.
- *
- * Strategy — Offline-first, Room as SSOT:
- * 1. All reads come from Room (instant, reactive Flow)
- * 2. All writes go to Room first, then Firestore
- * 3. If Firestore write fails, Room still has the data (no data loss)
- * 4. Background sync (SyncWorker) handles retries
- *
- * Firestore collection: /lost_items/{itemId}
- */
 class FirestoreLostItemRepositoryImpl @Inject constructor(
     private val dao: LostItemDao,
     private val sessionManager: SessionManager,
@@ -37,7 +24,7 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
         private const val ITEMS_COLLECTION = "lost_items"
     }
 
-    // ── Reads — always from Room (offline-first) ───────────────────────────
+    // ── Reads — always from Room ───────────────────────────────────────────
 
     override fun getAllItems(): Flow<List<LostItem>> =
         dao.getAllItems().map { it.map { e -> e.toDomain() } }
@@ -51,14 +38,15 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
     override fun getItemsByUser(userId: String): Flow<List<LostItem>> =
         dao.getItemsByUser(userId).map { it.map { e -> e.toDomain() } }
 
-    // ── Add item — Room first, then Firestore ──────────────────────────────
+    // ── Add item — Room first (local path), then Firestore ─────────────────
+    // Returns item ID so caller can update photoUri after Supabase upload
 
     override suspend fun addItem(
         title: String,
         description: String,
         location: String?,
         photoUri: String?
-    ): Result<Unit> {
+    ): Result<String> {
         return try {
             val userId = sessionManager.currentUserId
                 ?: return Result.failure(Exception("Not logged in"))
@@ -75,17 +63,44 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
                 reportedBy     = userId,
                 reportedAt     = now,
                 lastModifiedAt = now,
-                photoUri       = photoUri
+                photoUri       = photoUri   // local path at this point
             )
 
-            // 1. Save to Room immediately (user sees it instantly)
+            // 1. Save to Room immediately — photo shows on reporter's device instantly
             dao.insertItem(entity)
 
-            // 2. Sync to Firestore in background (fire and forget)
+            // 2. Sync to Firestore (with local path for now)
             syncItemToFirestore(entity)
 
+            Result.success(itemId)   // ← return itemId
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ── Update photo URI — called after Supabase upload completes ──────────
+    // Updates both Room and Firestore with the public HTTPS URL
+
+    override suspend fun updatePhotoUri(id: String, photoUri: String): Result<Unit> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+
+            // Update Room
+            dao.updatePhotoUri(id, photoUri, timestamp)
+
+            // Update Firestore
+            firestore.collection(ITEMS_COLLECTION).document(id)
+                .update(
+                    mapOf(
+                        "photoUri"       to photoUri,
+                        "lastModifiedAt" to timestamp
+                    )
+                ).await()
+
+            android.util.Log.d("Supabase", "✅ photoUri updated in Room + Firestore: $photoUri")
             Result.success(Unit)
         } catch (e: Exception) {
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -102,16 +117,13 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
             val timestamp = System.currentTimeMillis()
             dao.updateItemDetailsWithLocation(id, title, description, location, timestamp)
 
-            // Sync update to Firestore
             firestore.collection(ITEMS_COLLECTION).document(id)
-                .update(
-                    mapOf(
-                        "title"          to title,
-                        "description"    to description,
-                        "location"       to location,
-                        "lastModifiedAt" to timestamp
-                    )
-                ).await()
+                .update(mapOf(
+                    "title"          to title,
+                    "description"    to description,
+                    "location"       to location,
+                    "lastModifiedAt" to timestamp
+                )).await()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -127,12 +139,10 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
             dao.updateItemStatus(id, status.name, timestamp)
 
             firestore.collection(ITEMS_COLLECTION).document(id)
-                .update(
-                    mapOf(
-                        "status"         to status.name,
-                        "lastModifiedAt" to timestamp
-                    )
-                ).await()
+                .update(mapOf(
+                    "status"         to status.name,
+                    "lastModifiedAt" to timestamp
+                )).await()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -145,18 +155,14 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
     override suspend fun deleteItem(id: String): Result<Unit> {
         return try {
             dao.deleteItem(id)
-
-            firestore.collection(ITEMS_COLLECTION).document(id)
-                .delete()
-                .await()
-
+            firestore.collection(ITEMS_COLLECTION).document(id).delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // ── Sync from Firestore to Room (called by SyncWorker) ─────────────────
+    // ── Sync from Firestore to Room ────────────────────────────────────────
 
     suspend fun syncFromFirestore() {
         try {
@@ -165,13 +171,8 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
                 .get()
                 .await()
 
-            val entities = snapshot.documents.mapNotNull { doc ->
-                doc.toEntity()
-            }
-
-            // Insert all Firestore items into Room (REPLACE on conflict)
+            val entities = snapshot.documents.mapNotNull { doc -> doc.toEntity() }
             entities.forEach { dao.insertItem(it) }
-
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -186,7 +187,6 @@ class FirestoreLostItemRepositoryImpl @Inject constructor(
                 .set(entity.toFirestoreMap())
                 .await()
         } catch (e: Exception) {
-            // Firestore sync failed — Room already has it, SyncWorker will retry
             e.printStackTrace()
         }
     }

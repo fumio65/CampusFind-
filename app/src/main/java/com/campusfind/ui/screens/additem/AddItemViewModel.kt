@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.campusfind.data.local.photo.PhotoManager
 import com.campusfind.data.local.preferences.SessionManager
-import com.campusfind.data.remote.FirebaseStorageManager
+import com.campusfind.data.remote.SupabaseStorageManager
 import com.campusfind.domain.repository.LostItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,7 +18,7 @@ class AddItemViewModel @Inject constructor(
     private val repository: LostItemRepository,
     private val sessionManager: SessionManager,
     private val photoManager: PhotoManager,
-    private val storageManager: FirebaseStorageManager   // ← NEW
+    private val storageManager: SupabaseStorageManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddItemUiState())
@@ -66,34 +66,34 @@ class AddItemViewModel @Inject constructor(
                         return@launch
                     }
 
-                val itemId = UUID.randomUUID().toString()
-
                 // ── Photo handling ─────────────────────────────────────────
-                // Strategy: save locally first (offline-first), then upload to
-                // Firebase Storage for cross-device access
-                val photoUriToSave: String? = currentState.photoUri?.let { uri ->
-
-                    // 1. Save locally for immediate offline display
-                    val localPath = photoManager.savePhoto(uri)
-
-                    // 2. Upload to Firebase Storage — returns download URL
-                    //    which works on any device
-                    val downloadUrl = storageManager.uploadItemPhoto(
-                        contentUri = uri,
-                        userId     = userId,
-                        itemId     = itemId
-                    )
-
-                    // Use download URL if upload succeeded,
-                    // fall back to local path if offline
-                    downloadUrl ?: localPath
+                // Strategy:
+                // 1. Save locally first → immediate display on reporter's device
+                // 2. Upload to Supabase BEFORE saving to Firestore
+                //    → Firestore gets the HTTPS URL so other devices see the photo
+                // 3. Save item with Supabase URL (or local path if offline)
+                val localPath = currentState.photoUri?.let { uri ->
+                    photoManager.savePhoto(uri)
                 }
+
+                // Upload to Supabase FIRST — so Firestore gets the public URL
+                val supabaseUrl = if (localPath != null) {
+                    storageManager.uploadPhoto(localPath).also { url ->
+                        if (url != null)
+                            android.util.Log.d("Supabase", "✅ Upload success before save: $url")
+                        else
+                            android.util.Log.w("Supabase", "⚠️ Upload failed, using local path")
+                    }
+                } else null
+
+                // Use Supabase URL if available, fall back to local path
+                val photoUriToSave = supabaseUrl ?: localPath
 
                 val result = repository.addItem(
                     title       = currentState.title.trim(),
                     description = currentState.description.trim(),
                     location    = currentState.location.trim().ifBlank { null },
-                    photoUri    = photoUriToSave   // Firebase Storage URL or local path
+                    photoUri    = photoUriToSave  // HTTPS URL → Firestore → all devices see it ✅
                 )
 
                 if (result.isSuccess) {

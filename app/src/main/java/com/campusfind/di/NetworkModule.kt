@@ -1,26 +1,27 @@
 package com.campusfind.di
 
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestoreSettings
+import com.google.firebase.firestore.persistentCacheSettings
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
-/**
- * FILE: app/src/main/java/com/campusfind/di/NetworkModule.kt
- *
- * Phase 2 stub — do NOT add Firebase dependencies yet.
- *
- * When Phase 2 starts (TASK-201), add:
- *
- *   @Provides
- *   @Singleton
- *   fun provideFirestore(): FirebaseFirestore {
- *       return FirebaseFirestore.getInstance()
- *   }
- *
- * See: DEC-007 (Firebase), DEC-022 (Hilt), TASK-100d, TASK-201
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    // Phase 2 — add FirebaseFirestore provider here (TASK-201)
+
+    @Provides
+    @Singleton
+    fun provideFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance().apply {
+            firestoreSettings = firestoreSettings {
+                // Enable offline persistence — Firestore caches data locally
+                // so the app works even when offline (supports offline-first)
+                setLocalCacheSettings(persistentCacheSettings {})
+            }
+        }
+    }
 }
