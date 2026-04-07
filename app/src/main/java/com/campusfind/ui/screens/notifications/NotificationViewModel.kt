@@ -1,55 +1,52 @@
 package com.campusfind.ui.screens.notifications
 
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.campusfind.data.local.notifications.AppNotificationManager
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.data.repository.FirestoreClaimRepositoryImpl
+import com.campusfind.data.repository.FirestoreLostItemRepositoryImpl
+import com.campusfind.data.repository.FirestoreTipRepositoryImpl
 import com.campusfind.domain.model.ClaimStatus
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.repository.ClaimRepository
 import com.campusfind.domain.repository.LostItemRepository
 import com.campusfind.domain.repository.TipRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
-import android.content.SharedPreferences
-import com.campusfind.data.local.notifications.AppNotificationManager
-import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-// ── Notification types ─────────────────────────────────────────────────────
-
 enum class NotificationType {
-    // Item activity
-    ITEM_FOUND,           // your item was marked as found
-    STILL_PENDING,        // your item pending 7+ days
-    NEW_REPORT,           // new item reported on campus (last 24h)
-
-    // Claim activity
-    CLAIM_RECEIVED,       // someone submitted a claim on YOUR item
-    CLAIM_APPROVED,       // your submitted claim was approved
-    CLAIM_REJECTED,       // your submitted claim was rejected
-
-    // Reply activity
-    CLAIM_REPLY_RECEIVED, // someone replied to a claim on YOUR item
-    CLAIM_REPLY_TO_YOU,   // owner replied to YOUR claim
-
-    // Tip activity
-    TIP_RECEIVED,         // someone left a tip on YOUR item
-    TIP_REPLY_RECEIVED;   // someone replied to YOUR tip
+    ITEM_FOUND,
+    STILL_PENDING,
+    NEW_REPORT,
+    CLAIM_RECEIVED,
+    CLAIM_APPROVED,
+    CLAIM_REJECTED,
+    CLAIM_REPLY_RECEIVED,
+    CLAIM_REPLY_TO_YOU,
+    TIP_RECEIVED,
+    TIP_REPLY_RECEIVED,
+    ITEM_RETURNED;        // ← NEW: notifies approved claimer when item marked FOUND
 
     fun getIcon(): String = when (this) {
-        ITEM_FOUND             -> "✅"
-        STILL_PENDING          -> "⏳"
-        NEW_REPORT             -> "📢"
-        CLAIM_RECEIVED         -> "✋"
-        CLAIM_APPROVED         -> "🎉"
-        CLAIM_REJECTED         -> "❌"
-        CLAIM_REPLY_RECEIVED   -> "💬"
-        CLAIM_REPLY_TO_YOU     -> "💬"
-        TIP_RECEIVED           -> "💡"
-        TIP_REPLY_RECEIVED     -> "↩️"
+        ITEM_FOUND           -> "✅"
+        STILL_PENDING        -> "⏳"
+        NEW_REPORT           -> "📢"
+        CLAIM_RECEIVED       -> "✋"
+        CLAIM_APPROVED       -> "🎉"
+        CLAIM_REJECTED       -> "❌"
+        CLAIM_REPLY_RECEIVED -> "💬"
+        CLAIM_REPLY_TO_YOU   -> "💬"
+        TIP_RECEIVED         -> "💡"
+        TIP_REPLY_RECEIVED   -> "↩️"
+        ITEM_RETURNED        -> "📦"
     }
 }
 
@@ -70,8 +67,6 @@ data class NotificationsUiState(
     val error: String? = null
 )
 
-// ── ViewModel ──────────────────────────────────────────────────────────────
-
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
     private val lostItemRepository: LostItemRepository,
@@ -79,18 +74,15 @@ class NotificationViewModel @Inject constructor(
     private val tipRepository: TipRepository,
     private val sessionManager: SessionManager,
     private val prefs: SharedPreferences,
-    private val appNotificationManager: AppNotificationManager
+    private val appNotificationManager: AppNotificationManager,
+    private val firestoreLostItemRepository: FirestoreLostItemRepositoryImpl,
+    private val firestoreTipRepository: FirestoreTipRepositoryImpl,
+    private val firestoreClaimRepository: FirestoreClaimRepositoryImpl
 ) : ViewModel() {
 
-    // IDs that have already triggered a system notification this session.
-    // Seeded with all existing IDs on first load so stale notifications
-    // don't re-fire every time the app opens.
     private val systemNotifiedIds = mutableSetOf<String>()
     private var isFirstLoad = true
 
-    // Persisted set of notification IDs the user has read.
-    // Key is USER-SPECIFIC — cached at init so it never changes mid-session.
-    // This prevents the "guest" fallback from mixing with real user read state.
     private val readKey: String by lazy {
         "read_notif_ids_${sessionManager.currentUserId ?: "guest"}"
     }
@@ -112,64 +104,68 @@ class NotificationViewModel @Inject constructor(
 
     val unreadCount: StateFlow<Int> = _uiState
         .map { it.unreadCount }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // Tracks the active collection job so repeated calls cancel the previous one.
-    // Without this, every call to loadNotifications() stacks a new permanent
-    // collect { } coroutine, leaking memory and overwhelming Room with concurrent
-    // queries — causing a silent OOM kill with no Logcat error.
     private var loadJob: Job? = null
 
-    init {
-        loadNotifications()
-    }
+    init { loadNotifications() }
 
     fun loadNotifications() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            // Guard — don't load if no user is logged in
             val currentUserId = sessionManager.currentUserId
             if (currentUserId == null) {
-                _uiState.update { it.copy(isLoading = false, notifications = emptyList(), unreadCount = 0) }
+                _uiState.update {
+                    it.copy(isLoading = false, notifications = emptyList(), unreadCount = 0)
+                }
                 return@launch
             }
 
             _uiState.update { it.copy(isLoading = true) }
+
+            // Step 1: Sync items
+            launch(Dispatchers.IO) {
+                try { firestoreLostItemRepository.syncFromFirestore() }
+                catch (e: Exception) { e.printStackTrace() }
+            }.join()
+
+            // Step 2: Sync tips + claims
+            launch(Dispatchers.IO) {
+                try {
+                    val allItems = lostItemRepository.getAllItems().first()
+                    allItems.filter { it.reportedBy == currentUserId }.forEach { item ->
+                        firestoreTipRepository.syncTipsFromFirestore(item.id)
+                        firestoreClaimRepository.syncClaimsFromFirestore(item.id)
+                    }
+                    allItems.filter { it.reportedBy != currentUserId }.forEach { item ->
+                        firestoreClaimRepository.syncClaimsFromFirestore(item.id)
+                        firestoreTipRepository.syncTipsFromFirestore(item.id)
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+            }.join()
+
+            // Step 3: Build notifications from fresh Room data
             try {
                 lostItemRepository.getAllItems().collect { allItems ->
-                    val currentUserId = sessionManager.currentUserId ?: return@collect
-                    val now = System.currentTimeMillis()
+                    val userId  = sessionManager.currentUserId ?: return@collect
+                    val now     = System.currentTimeMillis()
                     val readIds = getReadIds()
                     val notifications = mutableListOf<NotificationItem>()
 
                     // ══════════════════════════════════════════════════════
                     // MY ITEMS — I am the reporter
                     // ══════════════════════════════════════════════════════
-                    val myItems = allItems.filter { it.reportedBy == currentUserId }
+                    val myItems = allItems.filter { it.reportedBy == userId }
 
                     myItems.forEach { item ->
                         val daysOld = TimeUnit.MILLISECONDS.toDays(now - item.reportedAt)
-                        val daysModified = TimeUnit.MILLISECONDS.toDays(now - item.lastModifiedAt)
 
-                        // ── 1. Item marked as found ────────────────────────
-                        if (item.status == ItemStatus.FOUND &&
-                            item.lastModifiedAt > item.reportedAt) {
-                            notifications.add(NotificationItem(
-                                id        = "${item.id}_found",
-                                type      = NotificationType.ITEM_FOUND,
-                                title     = "Item Recovered! 🎉",
-                                message   = "\"${item.title}\" has been marked as found.",
-                                timestamp = item.lastModifiedAt,
-                                itemId    = item.id,
-                                isRead    = false
-                            ))
-                        }
+                        // 1. Item marked as FOUND
+                        // ✅ FIXED: removed — reporter marked it themselves,
+                        //    they don't need a notification about their own action.
+                        //    The approved claimer (Mark) gets ITEM_RETURNED instead.
 
-                        // ── 2. Item still pending 7+ days ─────────────────
+                        // 2. Item still pending 7+ days
                         if (item.status == ItemStatus.LOST && daysOld >= 7) {
                             notifications.add(NotificationItem(
                                 id        = "${item.id}_pending",
@@ -177,96 +173,79 @@ class NotificationViewModel @Inject constructor(
                                 title     = "Still Looking?",
                                 message   = "\"${item.title}\" has been lost for $daysOld days. Consider updating the description.",
                                 timestamp = item.reportedAt,
-                                itemId    = item.id,
-                                isRead    = false
+                                itemId    = item.id
                             ))
                         }
 
-                        // ── 3. Claims submitted on my item ─────────────────
+                        // 3. Claims on my item
+                        // ✅ FIXED: only show PENDING claims — skip rejected ones
+                        //    so lhester isn't spammed with old rejected claim notifications
                         val claimsOnMyItem = claimRepository.getClaimsByItem(item.id).first()
+                        claimsOnMyItem
+                            .filter { it.status == ClaimStatus.PENDING }
+                            .forEach { claim ->
+                                notifications.add(NotificationItem(
+                                    id        = "${claim.id}_claim_received",
+                                    type      = NotificationType.CLAIM_RECEIVED,
+                                    title     = "New Claim on Your Item ✋",
+                                    message   = "${claim.claimerName} claims to have found \"${item.title}\".",
+                                    timestamp = claim.claimedAt,
+                                    itemId    = item.id
+                                ))
+                            }
+
+                        // 4. Replies on claims of my item (from claimer)
                         claimsOnMyItem.forEach { claim ->
-                            val claimAgeHours = TimeUnit.MILLISECONDS
-                                .toHours(now - claim.claimedAt)
-
-                            // Someone submitted a claim on my item
-                            notifications.add(NotificationItem(
-                                id        = "${claim.id}_claim_received",
-                                type      = NotificationType.CLAIM_RECEIVED,
-                                title     = "New Claim on Your Item ✋",
-                                message   = "${claim.claimerName} claims to have found \"${item.title}\".",
-                                timestamp = claim.claimedAt,
-                                itemId    = item.id,
-                                isRead    = false
-                            ))
-
-                            // ── 4. Replies made on claims of my item ───────
-                            // i.e. the claimer replied back after I replied
                             val replies = claimRepository.getRepliesByClaimId(claim.id).first()
-                            // Replies NOT authored by me on MY item's claims
-                            replies.filter { it.authorId != currentUserId }
-                                .forEach { reply ->
-                                    val replyAgeHours = TimeUnit.MILLISECONDS
-                                        .toHours(now - reply.createdAt)
-                                    notifications.add(NotificationItem(
-                                        id        = "${reply.id}_claim_reply_received",
-                                        type      = NotificationType.CLAIM_REPLY_RECEIVED,
-                                        title     = "New Reply on a Claim 💬",
-                                        message   = "${reply.authorName} replied on the claim for \"${item.title}\": \"${reply.message.take(60)}${if (reply.message.length > 60) "..." else ""}\"",
-                                        timestamp = reply.createdAt,
-                                        itemId    = item.id,
-                                        isRead    = false
-                                    ))
-                                }
+                            replies.filter { it.authorId != userId }.forEach { reply ->
+                                notifications.add(NotificationItem(
+                                    id        = "${reply.id}_claim_reply_received",
+                                    type      = NotificationType.CLAIM_REPLY_RECEIVED,
+                                    title     = "New Reply on a Claim 💬",
+                                    message   = "${reply.authorName} replied on the claim for \"${item.title}\": \"${reply.message.take(60)}${if (reply.message.length > 60) "..." else ""}\"",
+                                    timestamp = reply.createdAt,
+                                    itemId    = item.id
+                                ))
+                            }
                         }
 
-                        // ── 5. Tips left on my item ────────────────────────
-                        val tipCount = tipRepository.getTipCount(item.id)
-                        if (tipCount > 0) {
-                            val tips = tipRepository.getTipsByItemId(item.id).first()
-                            // Only top-level tips (not replies) from OTHER users
-                            tips.filter { it.authorId != currentUserId && it.parentTipId == null }
-                                .forEach { tip ->
-                                    val tipAgeHours = TimeUnit.MILLISECONDS
-                                        .toHours(now - tip.createdAt)
-                                    notifications.add(NotificationItem(
-                                        id        = "${tip.id}_tip_received",
-                                        type      = NotificationType.TIP_RECEIVED,
-                                        title     = "New Tip on Your Item 💡",
-                                        message   = "Someone left a tip on \"${item.title}\": \"${tip.message.take(60)}${if (tip.message.length > 60) "..." else ""}\"",
-                                        timestamp = tip.createdAt,
-                                        itemId    = item.id,
-                                        isRead    = false
-                                    ))
-                                }
+                        // 5. Tips left on my item
+                        val tips = tipRepository.getTipsByItemId(item.id).first()
+                        tips.filter { it.authorId != userId && it.parentTipId == null }
+                            .forEach { tip ->
+                                notifications.add(NotificationItem(
+                                    id        = "${tip.id}_tip_received",
+                                    type      = NotificationType.TIP_RECEIVED,
+                                    title     = "New Tip on Your Item 💡",
+                                    message   = "Someone left a tip on \"${item.title}\": \"${tip.message.take(60)}${if (tip.message.length > 60) "..." else ""}\"",
+                                    timestamp = tip.createdAt,
+                                    itemId    = item.id
+                                ))
+                            }
 
-                            // ── 6. Replies to tips on my item ──────────────
-                            // Someone replied to a tip thread on my item
-                            tips.filter { it.authorId != currentUserId && it.parentTipId != null }
-                                .forEach { reply ->
-                                    val replyAgeHours = TimeUnit.MILLISECONDS
-                                        .toHours(now - reply.createdAt)
-                                    notifications.add(NotificationItem(
-                                        id        = "${reply.id}_tip_reply_on_my_item",
-                                        type      = NotificationType.TIP_REPLY_RECEIVED,
-                                        title     = "New Reply in Tip Thread ↩️",
-                                        message   = "Someone replied in a tip thread on \"${item.title}\".",
-                                        timestamp = reply.createdAt,
-                                        itemId    = item.id,
-                                        isRead    = false
-                                    ))
-                                }
-                        }
+                        // 6. Replies to tips on my item
+                        tips.filter { it.authorId != userId && it.parentTipId != null }
+                            .forEach { reply ->
+                                notifications.add(NotificationItem(
+                                    id        = "${reply.id}_tip_reply_on_my_item",
+                                    type      = NotificationType.TIP_REPLY_RECEIVED,
+                                    title     = "New Reply in Tip Thread ↩️",
+                                    message   = "Someone replied in a tip thread on \"${item.title}\".",
+                                    timestamp = reply.createdAt,
+                                    itemId    = item.id
+                                ))
+                            }
                     }
 
                     // ══════════════════════════════════════════════════════
                     // OTHER PEOPLE'S ITEMS — I am the claimer / tipper
                     // ══════════════════════════════════════════════════════
-                    val otherItems = allItems.filter { it.reportedBy != currentUserId }
+                    val otherItems = allItems.filter { it.reportedBy != userId }
 
                     otherItems.forEach { item ->
                         val hoursOld = TimeUnit.MILLISECONDS.toHours(now - item.reportedAt)
 
-                        // ── 7. New reports from others (last 24h) ──────────
+                        // 7. New reports from others (last 24h)
                         if (item.status == ItemStatus.LOST && hoursOld < 24) {
                             notifications.add(NotificationItem(
                                 id        = "${item.id}_new_report",
@@ -274,18 +253,15 @@ class NotificationViewModel @Inject constructor(
                                 title     = "New Lost Item Report 📢",
                                 message   = "Someone reported \"${item.title}\" as lost on campus.",
                                 timestamp = item.reportedAt,
-                                itemId    = item.id,
-                                isRead    = false
+                                itemId    = item.id
                             ))
                         }
 
-                        // ── 8. My claims on other items ────────────────────
+                        // 8. My claims on other items
                         val allClaims = claimRepository.getClaimsByItem(item.id).first()
-                        val myClaims = allClaims.filter { it.claimerId == currentUserId }
+                        val myClaims  = allClaims.filter { it.claimerId == userId }
 
                         myClaims.forEach { claim ->
-                            val claimAgeHours = TimeUnit.MILLISECONDS
-                                .toHours(now - claim.claimedAt)
 
                             // Claim approved
                             if (claim.status == ClaimStatus.APPROVED) {
@@ -295,8 +271,7 @@ class NotificationViewModel @Inject constructor(
                                     title     = "Claim Approved! 🎉",
                                     message   = "Your claim for \"${item.title}\" was approved. You can now contact the owner.",
                                     timestamp = claim.claimedAt,
-                                    itemId    = item.id,
-                                    isRead    = false
+                                    itemId    = item.id
                                 ))
                             }
 
@@ -308,65 +283,65 @@ class NotificationViewModel @Inject constructor(
                                     title     = "Claim Not Approved",
                                     message   = "Your claim for \"${item.title}\" was not approved by the owner.",
                                     timestamp = claim.claimedAt,
-                                    itemId    = item.id,
-                                    isRead    = false
+                                    itemId    = item.id
                                 ))
                             }
 
-                            // ── 9. Owner replied to MY claim ───────────────
+                            // ✅ NEW: Notify approved claimer (Mark) when item is marked FOUND
+                            // This confirms the item was successfully returned
+                            if (claim.status == ClaimStatus.APPROVED &&
+                                item.status == ItemStatus.FOUND) {
+                                notifications.add(NotificationItem(
+                                    id        = "${item.id}_${claim.id}_returned",
+                                    type      = NotificationType.ITEM_RETURNED,
+                                    title     = "Item Successfully Returned 📦",
+                                    message   = "\"${item.title}\" has been marked as found. Thank you for helping!",
+                                    timestamp = item.lastModifiedAt,
+                                    itemId    = item.id
+                                ))
+                            }
+
+                            // 9. Owner replied to MY claim
                             val replies = claimRepository.getRepliesByClaimId(claim.id).first()
-                            // Replies NOT from me = owner or others replying to my claim
-                            replies.filter { it.authorId != currentUserId }
-                                .forEach { reply ->
-                                    val replyAgeHours = TimeUnit.MILLISECONDS
-                                        .toHours(now - reply.createdAt)
-                                    notifications.add(NotificationItem(
-                                        id        = "${reply.id}_claim_reply_to_me",
-                                        type      = NotificationType.CLAIM_REPLY_TO_YOU,
-                                        title     = "Owner Replied to Your Claim 💬",
-                                        message   = "${reply.authorName} replied to your claim on \"${item.title}\": \"${reply.message.take(60)}${if (reply.message.length > 60) "..." else ""}\"",
-                                        timestamp = reply.createdAt,
-                                        itemId    = item.id,
-                                        isRead    = false
-                                    ))
-                                }
+                            replies.filter { it.authorId != userId }.forEach { reply ->
+                                notifications.add(NotificationItem(
+                                    id        = "${reply.id}_claim_reply_to_me",
+                                    type      = NotificationType.CLAIM_REPLY_TO_YOU,
+                                    title     = "Owner Replied to Your Claim 💬",
+                                    message   = "${reply.authorName} replied to your claim on \"${item.title}\": \"${reply.message.take(60)}${if (reply.message.length > 60) "..." else ""}\"",
+                                    timestamp = reply.createdAt,
+                                    itemId    = item.id
+                                ))
+                            }
                         }
 
-                        // ── 10. Replies to tips I posted ───────────────────
+                        // 10. Replies to tips I posted
                         val allTips = tipRepository.getTipsByItemId(item.id).first()
-                        // My top-level tips
-                        val myTips = allTips.filter { it.authorId == currentUserId && it.parentTipId == null }
-
+                        val myTips  = allTips.filter {
+                            it.authorId == userId && it.parentTipId == null
+                        }
                         myTips.forEach { myTip ->
-                            // Replies to my tip from others
                             allTips.filter {
-                                it.parentTipId == myTip.id && it.authorId != currentUserId
+                                it.parentTipId == myTip.id && it.authorId != userId
                             }.forEach { reply ->
-                                val replyAgeHours = TimeUnit.MILLISECONDS
-                                    .toHours(now - reply.createdAt)
                                 notifications.add(NotificationItem(
                                     id        = "${reply.id}_tip_reply_to_me",
                                     type      = NotificationType.TIP_REPLY_RECEIVED,
                                     title     = "Someone Replied to Your Tip ↩️",
                                     message   = "Your tip on \"${item.title}\" got a reply: \"${reply.message.take(60)}${if (reply.message.length > 60) "..." else ""}\"",
                                     timestamp = reply.createdAt,
-                                    itemId    = item.id,
-                                    isRead    = false
+                                    itemId    = item.id
                                 ))
                             }
                         }
                     }
 
-                    // Sort newest first, remove duplicates, re-apply persisted read state
                     val sorted = notifications
                         .distinctBy { it.id }
                         .map { if (readIds.contains(it.id)) it.copy(isRead = true) else it }
                         .sortedByDescending { it.timestamp }
                     val unread = sorted.count { !it.isRead }
 
-                    // Fire system notifications for items that appeared AFTER app launch.
-                    // On first load we just seed the known-ID set so nothing re-fires
-                    // for notifications that were already there when the user opened the app.
                     if (isFirstLoad) {
                         systemNotifiedIds.addAll(sorted.map { it.id })
                         isFirstLoad = false
@@ -392,20 +367,15 @@ class NotificationViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error     = e.message ?: "Failed to load notifications"
-                    )
+                    it.copy(isLoading = false, error = e.message ?: "Failed to load notifications")
                 }
             }
         }
     }
 
     fun markAllAsRead() {
-        // Persist all current notification IDs as read
         val allIds = _uiState.value.notifications.map { it.id }.toSet()
         saveAllReadIds(allIds)
-
         _uiState.update { state ->
             state.copy(
                 notifications = state.notifications.map { it.copy(isRead = true) },
@@ -415,18 +385,12 @@ class NotificationViewModel @Inject constructor(
     }
 
     fun markAsRead(notificationId: String) {
-        // Persist this ID so it stays read after recomposition
         saveReadId(notificationId)
-
         _uiState.update { state ->
             val updated = state.notifications.map { notif ->
-                if (notif.id == notificationId) notif.copy(isRead = true)
-                else notif
+                if (notif.id == notificationId) notif.copy(isRead = true) else notif
             }
-            state.copy(
-                notifications = updated,
-                unreadCount   = updated.count { !it.isRead }
-            )
+            state.copy(notifications = updated, unreadCount = updated.count { !it.isRead })
         }
     }
 }
