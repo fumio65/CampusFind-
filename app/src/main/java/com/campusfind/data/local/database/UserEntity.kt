@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.campusfind.domain.model.SyncStatus
 
 /**
  * FILE: app/src/main/java/com/campusfind/data/local/database/UserEntity.kt
@@ -45,5 +46,8 @@ data class UserEntity(
     val messengerHandle: String? = null,        // optional @ username for Phase 2 deep link
 
     @ColumnInfo(name = "created_at")
-    val createdAt: Long                         // System.currentTimeMillis()
+    val createdAt: Long,                        // System.currentTimeMillis()
+
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: String = SyncStatus.PENDING_SYNC.name
 )

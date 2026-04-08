@@ -22,7 +22,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "campusfind_database"
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(AppDatabase.MIGRATION_2_3)
             .build()
     }
 

@@ -1,15 +1,25 @@
 package com.campusfind
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import com.campusfind.data.sync.SyncManager
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
-/**
- * FILE: app/src/main/java/com/campusfind/CampusFindApplication.kt
- *
- * @HiltAndroidApp triggers Hilt code generation for the entire app.
- * Must be registered in AndroidManifest.xml via android:name=".CampusFindApplication"
- *
- * See: DEC-022 (Hilt), TASK-100
- */
 @HiltAndroidApp
-class CampusFindApplication : Application()
+class CampusFindApplication : Application(), Configuration.Provider {
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var syncManager: SyncManager
+
+    override fun onCreate() {
+        super.onCreate()
+        syncManager.schedulePeriodic()
+    }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+}

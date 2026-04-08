@@ -3,6 +3,7 @@ package com.campusfind.data.local.database
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.campusfind.domain.model.SyncStatus
 import java.util.UUID
 
 @Entity(tableName = "lost_items")
@@ -32,5 +33,8 @@ data class LostItemEntity(
     val lastModifiedAt: Long,
 
     @ColumnInfo(name = "photo_uri")
-    val photoUri: String? = null
+    val photoUri: String? = null,
+
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: String = SyncStatus.PENDING_SYNC.name
 )

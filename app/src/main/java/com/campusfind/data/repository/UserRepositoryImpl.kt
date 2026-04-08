@@ -2,6 +2,8 @@ package com.campusfind.data.repository
 
 import com.campusfind.data.local.database.UserDao
 import com.campusfind.data.local.database.UserEntity
+import com.campusfind.data.sync.SyncManager
+import com.campusfind.domain.model.SyncStatus
 import com.campusfind.domain.model.User
 import com.campusfind.domain.repository.UserRepository
 import java.security.MessageDigest
@@ -9,7 +11,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val syncManager: SyncManager
 ) : UserRepository {
 
     override suspend fun register(
@@ -32,10 +35,12 @@ class UserRepositoryImpl @Inject constructor(
                 email = email,
                 passwordHash = passwordHash,
                 messengerHandle = messengerHandle,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                syncStatus = SyncStatus.PENDING_SYNC.name
             )
 
             userDao.insertUser(userEntity)
+            syncManager.triggerNow()
             Result.success(userEntity.toDomain())
         } catch (e: Exception) {
             Result.failure(e)
@@ -71,6 +76,8 @@ class UserRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         return try {
             userDao.updateMessengerHandle(userId, messengerHandle)
+            userDao.updateSyncStatus(userId, SyncStatus.PENDING_SYNC.name)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

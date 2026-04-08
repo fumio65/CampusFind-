@@ -51,4 +51,13 @@ interface LostItemDao {
 
     @Query("DELETE FROM lost_items WHERE id = :id")
     suspend fun deleteItem(id: String)
+
+    @Query("SELECT * FROM lost_items WHERE sync_status = 'PENDING_SYNC'")
+    suspend fun getPendingSyncItems(): List<LostItemEntity>
+
+    @Query("UPDATE lost_items SET sync_status = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<LostItemEntity>)
 }

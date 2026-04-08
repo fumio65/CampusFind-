@@ -3,6 +3,8 @@ package com.campusfind.data.repository
 import com.campusfind.data.local.database.TipDao
 import com.campusfind.data.local.database.TipEntity
 import com.campusfind.data.local.database.TipWithAuthor
+import com.campusfind.data.sync.SyncManager
+import com.campusfind.domain.model.SyncStatus
 import com.campusfind.domain.model.Tip
 import com.campusfind.domain.repository.TipRepository
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +13,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 class TipRepositoryImpl @Inject constructor(
-    private val tipDao: TipDao
+    private val tipDao: TipDao,
+    private val syncManager: SyncManager
 ) : TipRepository {
 
     override fun getTipsByItemId(itemId: String): Flow<List<Tip>> {
@@ -32,9 +35,11 @@ class TipRepositoryImpl @Inject constructor(
                 authorId = authorId,
                 message = message.trim(),
                 createdAt = System.currentTimeMillis(),
-                parentTipId = null  // Top-level tip
+                parentTipId = null,
+                syncStatus = SyncStatus.PENDING_SYNC.name
             )
             tipDao.insertTip(tip)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -54,9 +59,11 @@ class TipRepositoryImpl @Inject constructor(
                 authorId = authorId,
                 message = message.trim(),
                 createdAt = System.currentTimeMillis(),
-                parentTipId = parentTipId  // Reply to this tip
+                parentTipId = parentTipId,
+                syncStatus = SyncStatus.PENDING_SYNC.name
             )
             tipDao.insertTip(reply)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

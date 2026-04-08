@@ -1,26 +1,50 @@
 package com.campusfind.di
 
+import com.campusfind.BuildConfig
+import com.campusfind.data.remote.source.ClaimRemoteDataSource
+import com.campusfind.data.remote.source.ClaimReplyRemoteDataSource
+import com.campusfind.data.remote.source.LostItemRemoteDataSource
+import com.campusfind.data.remote.source.TipRemoteDataSource
+import com.campusfind.data.remote.source.UserRemoteDataSource
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
+import javax.inject.Singleton
 
-/**
- * FILE: app/src/main/java/com/campusfind/di/NetworkModule.kt
- *
- * Phase 2 stub — do NOT add Firebase dependencies yet.
- *
- * When Phase 2 starts (TASK-201), add:
- *
- *   @Provides
- *   @Singleton
- *   fun provideFirestore(): FirebaseFirestore {
- *       return FirebaseFirestore.getInstance()
- *   }
- *
- * See: DEC-007 (Firebase), DEC-022 (Hilt), TASK-100d, TASK-201
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    // Phase 2 — add FirebaseFirestore provider here (TASK-201)
+
+    @Provides
+    @Singleton
+    fun provideSupabaseClient(): SupabaseClient = createSupabaseClient(
+        supabaseUrl = BuildConfig.SUPABASE_URL,
+        supabaseKey = BuildConfig.SUPABASE_KEY
+    ) {
+        install(Postgrest)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserRemoteDataSource(client: SupabaseClient) = UserRemoteDataSource(client)
+
+    @Provides
+    @Singleton
+    fun provideLostItemRemoteDataSource(client: SupabaseClient) = LostItemRemoteDataSource(client)
+
+    @Provides
+    @Singleton
+    fun provideClaimRemoteDataSource(client: SupabaseClient) = ClaimRemoteDataSource(client)
+
+    @Provides
+    @Singleton
+    fun provideClaimReplyRemoteDataSource(client: SupabaseClient) = ClaimReplyRemoteDataSource(client)
+
+    @Provides
+    @Singleton
+    fun provideTipRemoteDataSource(client: SupabaseClient) = TipRemoteDataSource(client)
 }

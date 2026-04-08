@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew assembleDebug)",
+      "Bash(curl -s \"https://search.maven.org/solrsearch/select?q=g:io.github.jan-tennert.supabase+a:bom&core=gav&rows=30&wt=json\")",
+      "Bash(curl -s \"https://repo.maven.apache.org/maven2/io/github/jan-tennert/supabase/postgrest-kt/2.6.1/postgrest-kt-2.6.1.pom\")",
+      "Bash(curl -s \"https://repo.maven.apache.org/maven2/io/github/jan-tennert/supabase/supabase-kt/2.6.1/supabase-kt-2.6.1.module\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); v=d.get\\('variants',[{}]\\)[0]; [print\\(dep\\) for dep in v.get\\('dependencies',[]\\)]\")"
+    ]
+  }
+}
