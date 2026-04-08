@@ -60,4 +60,7 @@ interface LostItemDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<LostItemEntity>)
+
+    @Query("UPDATE lost_items SET photo_uri = :photoUri WHERE id = :id")
+    suspend fun updatePhotoUri(id: String, photoUri: String)
 }

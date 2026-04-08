@@ -22,6 +22,7 @@ import com.campusfind.data.remote.dto.UserDto
 import com.campusfind.data.remote.source.ClaimRemoteDataSource
 import com.campusfind.data.remote.source.ClaimReplyRemoteDataSource
 import com.campusfind.data.remote.source.LostItemRemoteDataSource
+import com.campusfind.data.remote.source.PhotoRemoteDataSource
 import com.campusfind.data.remote.source.TipRemoteDataSource
 import com.campusfind.data.remote.source.UserRemoteDataSource
 import com.campusfind.domain.model.SyncStatus
@@ -42,6 +43,7 @@ class SyncWorker @AssistedInject constructor(
     private val claimRemote: ClaimRemoteDataSource,
     private val claimReplyRemote: ClaimReplyRemoteDataSource,
     private val tipRemote: TipRemoteDataSource,
+    private val photoRemote: PhotoRemoteDataSource,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -78,7 +80,16 @@ class SyncWorker @AssistedInject constructor(
     private suspend fun pushLostItems() {
         lostItemDao.getPendingSyncItems().forEach { entity ->
             try {
-                lostItemRemote.upsert(entity.toDto())
+                // If the photo is a local file path, upload it to Supabase Storage first.
+                val resolvedEntity = if (!photoRemote.isRemoteUrl(entity.photoUri) && entity.photoUri != null) {
+                    val url = photoRemote.uploadItemPhoto(entity.photoUri, entity.id)
+                    if (url != null) {
+                        lostItemDao.updatePhotoUri(entity.id, url)
+                        entity.copy(photoUri = url)
+                    } else entity
+                } else entity
+
+                lostItemRemote.upsert(resolvedEntity.toDto())
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)

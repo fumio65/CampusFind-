@@ -22,8 +22,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        buildConfigField("String", "SUPABASE_URL", "\"https://YOUR_PROJECT.supabase.co\"")
-        buildConfigField("String", "SUPABASE_KEY", "\"YOUR_ANON_KEY\"")
+        buildConfigField("String", "SUPABASE_URL", "\"https://pvzgeheitqdiehtlonzn.supabase.co\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"sb_publishable_jY75mZiBm3tkZnMiA_gUzw_qTTDvCWh\"")
     }
 
     buildTypes {
@@ -107,6 +107,7 @@ dependencies {
     // Supabase
     implementation(platform("io.github.jan-tennert.supabase:bom:2.6.1"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
 
     // Ktor OkHttp engine (required by Supabase on Android)
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
