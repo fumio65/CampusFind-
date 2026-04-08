@@ -9,7 +9,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -29,6 +31,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationScreen(
     onNavigateBack: () -> Unit,
@@ -37,114 +40,95 @@ fun NotificationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Reload on entry so persisted read state is applied immediately
-    LaunchedEffect(Unit) {
-        viewModel.loadNotifications()
-    }
+    LaunchedEffect(Unit) { viewModel.loadNotifications() }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LocalAppColors.current.screenBg)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(LocalAppColors.current.screenBg)) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── Hero header ────────────────────────────────────────────────
             NotificationHero(
-                unreadCount  = uiState.unreadCount,
+                unreadCount    = uiState.unreadCount,
                 onNavigateBack = onNavigateBack,
-                onMarkAllRead = { viewModel.markAllAsRead() }
+                onMarkAllRead  = { viewModel.markAllAsRead() }
             )
 
-            // ── Content ────────────────────────────────────────────────────
-            when {
-                uiState.isLoading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = ModernAccent)
+            var isRefreshing by remember { mutableStateOf(false) }
+            val refreshScope = rememberCoroutineScope()
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh    = {
+                    refreshScope.launch {
+                        isRefreshing = true
+                        viewModel.loadNotifications()
+                        kotlinx.coroutines.delay(1500)
+                        isRefreshing = false
                     }
-                }
-                uiState.error != null -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.padding(32.dp)
-                        ) {
-                            Text("⚠️", fontSize = 48.sp)
-                            Text(uiState.error ?: "Error", fontSize = 14.sp,
-                                color = ModernError, textAlign = TextAlign.Center)
-                            Button(
-                                onClick = { viewModel.loadNotifications() },
-                                colors = ButtonDefaults.buttonColors(containerColor = ModernAccent)
-                            ) { Text("Retry") }
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when {
+                    uiState.isLoading -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = ModernAccent)
                         }
                     }
-                }
-                uiState.notifications.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.padding(32.dp)
-                        ) {
-                            Text("🔔", fontSize = 64.sp)
-                            Text("No Notifications",
-                                fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                                color = LocalAppColors.current.textMuted)
-                            Text(
-                                "You're all caught up! Notifications about your items will appear here.",
-                                fontSize = 13.sp, color = LocalAppColors.current.textMuted,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            horizontal = 14.dp, vertical = 12.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(
-                            items = uiState.notifications,
-                            key   = { it.id }
-                        ) { notification ->
-                            NotificationCard(
-                                notification = notification,
-                                onClick = {
-                                    // Mark as read on tap, then navigate
-                                    viewModel.markAsRead(notification.id)
-                                    notification.itemId?.let { onNavigateToDetail(it) }
+                    uiState.error != null -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(32.dp)) {
+                                Text("⚠️", fontSize = 48.sp)
+                                Text(uiState.error ?: "Error", fontSize = 14.sp,
+                                    color = ModernError, textAlign = TextAlign.Center)
+                                Button(onClick = { viewModel.loadNotifications() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ModernAccent)) {
+                                    Text("Retry")
                                 }
-                            )
+                            }
+                        }
+                    }
+                    uiState.notifications.isEmpty() -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(32.dp)) {
+                                Text("🔔", fontSize = 64.sp)
+                                Text("No Notifications", fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = LocalAppColors.current.textMuted)
+                                Text("You're all caught up! Notifications about your items will appear here.",
+                                    fontSize = 13.sp, color = LocalAppColors.current.textMuted,
+                                    textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(items = uiState.notifications, key = { it.id }) { notification ->
+                                NotificationCard(
+                                    notification = notification,
+                                    onClick = {
+                                        viewModel.markAsRead(notification.id)
+                                        notification.itemId?.let { onNavigateToDetail(it) }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
+
             }
         }
     }
 }
 
-// ── Hero ───────────────────────────────────────────────────────────────────
-
 @Composable
 private fun NotificationHero(
-    unreadCount: Int,
-    onNavigateBack: () -> Unit,
-    onMarkAllRead: () -> Unit
+    unreadCount: Int, onNavigateBack: () -> Unit, onMarkAllRead: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF1a1228), Color(0xFF2e1f48), Color(0xFF1a2a20))
-                )
-            )
-    ) {
-        // Ambient orbs
+    Box(modifier = Modifier.fillMaxWidth().background(Brush.linearGradient(
+        colors = listOf(Color(0xFF1a1228), Color(0xFF2e1f48), Color(0xFF1a2a20))))) {
         Box(modifier = Modifier.size(130.dp).offset(x = 260.dp, y = (-20).dp)
             .background(ModernAccent.copy(alpha = 0.25f), CircleShape).blur(40.dp))
         Box(modifier = Modifier.size(100.dp).offset(x = (-10).dp, y = 80.dp)
@@ -153,86 +137,48 @@ private fun NotificationHero(
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(8.dp))
-
-            // Back + Mark all read row
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Back button
+                verticalAlignment = Alignment.CenterVertically) {
                 HeroBackButton(onClick = onNavigateBack)
-
-                // Mark all as read button
                 if (unreadCount > 0) {
-                    Surface(
-                        onClick = onMarkAllRead,
-                        shape = RoundedCornerShape(20.dp),
+                    Surface(onClick = onMarkAllRead, shape = RoundedCornerShape(20.dp),
                         color = ModernAccent.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, ModernAccent.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            "Mark all read",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
+                        border = BorderStroke(1.dp, ModernAccent.copy(alpha = 0.4f))) {
+                        Text("Mark all read", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
             }
-
             Spacer(Modifier.height(12.dp))
-
-            // Title
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("🔔", fontSize = 28.sp)
-                    Text(
-                        "Notifications",
-                        fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White,
+                    Text("Notifications", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White,
                         style = LocalTextStyle.current.copy(
-                            shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 2f), 12f)
-                        )
-                    )
+                            shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 2f), 12f)))
                 }
                 Spacer(Modifier.height(6.dp))
                 if (unreadCount > 0) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = ModernAccent.copy(alpha = 0.25f),
-                        border = BorderStroke(1.dp, ModernAccent.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            "$unreadCount unread notification${if (unreadCount > 1) "s" else ""}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                    Surface(shape = RoundedCornerShape(12.dp), color = ModernAccent.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, ModernAccent.copy(alpha = 0.5f))) {
+                        Text("$unreadCount unread notification${if (unreadCount > 1) "s" else ""}",
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
                     }
                 } else {
-                    Text("You're all caught up ✓",
-                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+                    Text("You're all caught up ✓", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
                 }
             }
         }
     }
 }
 
-// ── Notification Card ──────────────────────────────────────────────────────
-
 @Composable
-private fun NotificationCard(
-    notification: NotificationItem,
-    onClick: () -> Unit
-) {
+private fun NotificationCard(notification: NotificationItem, onClick: () -> Unit) {
     val colors = LocalAppColors.current
-
     val accentColor = when (notification.type) {
         NotificationType.ITEM_FOUND           -> ModernFound
         NotificationType.STILL_PENDING        -> ModernLost
@@ -244,108 +190,57 @@ private fun NotificationCard(
         NotificationType.CLAIM_REPLY_TO_YOU   -> Color(0xFF9C27B0)
         NotificationType.TIP_RECEIVED         -> Color(0xFFFFB74D)
         NotificationType.TIP_REPLY_RECEIVED   -> Color(0xFFFFB74D)
+        NotificationType.ITEM_RETURNED        -> Color(0xFF4CAF50)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    Surface(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = if (!notification.isRead && colors.isDark)
-            colors.cardBg
-        else if (!notification.isRead)
-            Color.White
-        else
-            colors.cardBg.copy(alpha = if (colors.isDark) 0.6f else 1f),
+        color = if (!notification.isRead && colors.isDark) colors.cardBg
+        else if (!notification.isRead) Color.White
+        else colors.cardBg.copy(alpha = if (colors.isDark) 0.6f else 1f),
         border = BorderStroke(
             width = if (!notification.isRead) 1.5.dp else 1.dp,
-            color = if (!notification.isRead) accentColor.copy(alpha = 0.4f) else colors.cardBorder
-        ),
-        shadowElevation = if (!notification.isRead) 3.dp else 1.dp
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            color = if (!notification.isRead) accentColor.copy(alpha = 0.4f) else colors.cardBorder),
+        shadowElevation = if (!notification.isRead) 3.dp else 1.dp) {
+        Row(modifier = Modifier.fillMaxWidth().padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            // Icon circle
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(13.dp))
-                    .then(
-                        if (!notification.isRead)
-                            Modifier.background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(13.dp))
-                        else Modifier
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
+            verticalAlignment = Alignment.Top) {
+            Box(modifier = Modifier.size(46.dp)
+                .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(13.dp)),
+                contentAlignment = Alignment.Center) {
                 Text(notification.type.getIcon(), fontSize = 22.sp)
             }
-
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        notification.title,
-                        fontSize = 13.sp,
+                    verticalAlignment = Alignment.Top) {
+                    Text(notification.title, fontSize = 13.sp,
                         fontWeight = if (!notification.isRead) FontWeight.ExtraBold else FontWeight.Bold,
                         color = colors.textPrimary,
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    // Unread dot
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!notification.isRead) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(accentColor, CircleShape)
-                        )
+                        Box(modifier = Modifier.size(8.dp).background(accentColor, CircleShape))
                     }
                 }
-
                 Spacer(Modifier.height(3.dp))
-
-                Text(
-                    notification.message,
-                    fontSize = 11.sp,
-                    color = colors.textSecondary,
-                    lineHeight = 15.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
+                Text(notification.message, fontSize = 11.sp, color = colors.textSecondary,
+                    lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(6.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(4.dp).background(colors.divider, CircleShape))
-                    Text(
-                        formatNotifTimestamp(notification.timestamp),
-                        fontSize = 10.sp,
-                        color = colors.textMuted
-                    )
+                    Text(formatNotifTimestamp(notification.timestamp), fontSize = 10.sp, color = colors.textMuted)
                     if (notification.itemId != null) {
                         Text("·", fontSize = 10.sp, color = colors.textMuted)
-                        Text(
-                            "Tap to view →",
-                            fontSize = 10.sp,
-                            color = accentColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text("Tap to view →", fontSize = 10.sp, color = accentColor,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
     }
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 private fun formatNotifTimestamp(timestamp: Long): String {
     val now   = System.currentTimeMillis()
