@@ -132,13 +132,11 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun pullUsers() {
         userRemote.fetchAll().forEach { dto ->
-            userDao.upsertFromRemote(
-                id = dto.id,
-                fullName = dto.fullName,
-                email = dto.email,
-                messengerHandle = dto.messengerHandle,
-                createdAt = dto.createdAt
-            )
+            // Step 1: Insert only if this user doesn't exist locally yet.
+            //         INSERT OR IGNORE guarantees the local password_hash is never touched.
+            userDao.insertFromRemoteIfAbsent(dto.id, dto.fullName, dto.email, dto.messengerHandle, dto.createdAt)
+            // Step 2: Update non-sensitive profile fields for users that already exist locally.
+            userDao.updateNonSensitiveFromRemote(dto.id, dto.fullName, dto.messengerHandle)
         }
     }
 

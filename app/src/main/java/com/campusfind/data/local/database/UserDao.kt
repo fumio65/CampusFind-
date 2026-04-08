@@ -47,18 +47,25 @@ interface UserDao {
     @Query("UPDATE users SET sync_status = :status WHERE id = :id")
     suspend fun updateSyncStatus(id: String, status: String)
 
-    // Upsert a remote user without overwriting an existing local password_hash
+    // Insert a remote user only if they don't already exist locally.
+    // This guarantees the local password_hash is NEVER overwritten by cloud data.
     @Query("""
-        INSERT OR REPLACE INTO users (id, full_name, email, password_hash, messenger_handle, created_at, sync_status)
-        VALUES (:id, :fullName, :email,
-                COALESCE((SELECT password_hash FROM users WHERE id = :id), ''),
-                :messengerHandle, :createdAt, 'SYNCED')
+        INSERT OR IGNORE INTO users (id, full_name, email, password_hash, messenger_handle, created_at, sync_status)
+        VALUES (:id, :fullName, :email, '', :messengerHandle, :createdAt, 'SYNCED')
     """)
-    suspend fun upsertFromRemote(
+    suspend fun insertFromRemoteIfAbsent(
         id: String,
         fullName: String,
         email: String,
         messengerHandle: String?,
         createdAt: Long
     )
+
+    // Update only non-sensitive profile fields for an existing remote user.
+    @Query("""
+        UPDATE users
+        SET full_name = :fullName, messenger_handle = :messengerHandle, sync_status = 'SYNCED'
+        WHERE id = :id
+    """)
+    suspend fun updateNonSensitiveFromRemote(id: String, fullName: String, messengerHandle: String?)
 }
