@@ -9,5 +9,6 @@ data class UserDto(
     @SerialName("full_name") val fullName: String,
     val email: String,
     @SerialName("messenger_handle") val messengerHandle: String? = null,
-    @SerialName("created_at") val createdAt: Long
+    @SerialName("created_at") val createdAt: Long,
+    @SerialName("password_hash") val passwordHash: String = ""
 )

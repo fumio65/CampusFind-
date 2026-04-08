@@ -48,15 +48,17 @@ interface UserDao {
     suspend fun updateSyncStatus(id: String, status: String)
 
     // Insert a remote user only if they don't already exist locally.
-    // This guarantees the local password_hash is NEVER overwritten by cloud data.
+    // Uses the hash from Supabase so login works on a fresh/new device.
+    // INSERT OR IGNORE guarantees existing local users (with their local password_hash) are never overwritten.
     @Query("""
         INSERT OR IGNORE INTO users (id, full_name, email, password_hash, messenger_handle, created_at, sync_status)
-        VALUES (:id, :fullName, :email, '', :messengerHandle, :createdAt, 'SYNCED')
+        VALUES (:id, :fullName, :email, :passwordHash, :messengerHandle, :createdAt, 'SYNCED')
     """)
     suspend fun insertFromRemoteIfAbsent(
         id: String,
         fullName: String,
         email: String,
+        passwordHash: String,
         messengerHandle: String?,
         createdAt: Long
     )

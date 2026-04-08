@@ -133,9 +133,11 @@ class SyncWorker @AssistedInject constructor(
     private suspend fun pullUsers() {
         userRemote.fetchAll().forEach { dto ->
             // Step 1: Insert only if this user doesn't exist locally yet.
-            //         INSERT OR IGNORE guarantees the local password_hash is never touched.
-            userDao.insertFromRemoteIfAbsent(dto.id, dto.fullName, dto.email, dto.messengerHandle, dto.createdAt)
-            // Step 2: Update non-sensitive profile fields for users that already exist locally.
+            //         Uses the hash from Supabase so login works on a fresh device.
+            //         INSERT OR IGNORE means existing local users are never touched.
+            userDao.insertFromRemoteIfAbsent(dto.id, dto.fullName, dto.email, dto.passwordHash, dto.messengerHandle, dto.createdAt)
+            // Step 2: Update only non-sensitive profile fields for existing local users.
+            //         The local password_hash is always the authority on an existing device.
             userDao.updateNonSensitiveFromRemote(dto.id, dto.fullName, dto.messengerHandle)
         }
     }
@@ -167,7 +169,8 @@ class SyncWorker @AssistedInject constructor(
         fullName = fullName,
         email = email,
         messengerHandle = messengerHandle,
-        createdAt = createdAt
+        createdAt = createdAt,
+        passwordHash = passwordHash
     )
 
     private fun LostItemEntity.toDto() = LostItemDto(
