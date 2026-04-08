@@ -58,8 +58,31 @@ interface LostItemDao {
     @Query("UPDATE lost_items SET sync_status = :status WHERE id = :id")
     suspend fun updateSyncStatus(id: String, status: String)
 
+    // Used for bulk pull from Supabase — overwrites everything (for new devices / User B)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<LostItemEntity>)
+
+    // Smart upsert for pull: insert if new, or update metadata only (preserves local photo_uri)
+    @Query("""
+        INSERT INTO lost_items (id, title, description, location, status, reported_by, reported_at, last_modified_at, photo_uri, sync_status)
+        VALUES (:id, :title, :description, :location, :status, :reportedBy, :reportedAt, :lastModifiedAt, :remotePhotoUri, 'SYNCED')
+        ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            description = excluded.description,
+            location = excluded.location,
+            status = excluded.status,
+            last_modified_at = excluded.last_modified_at,
+            sync_status = 'SYNCED',
+            photo_uri = CASE
+                WHEN photo_uri LIKE '/%' THEN photo_uri
+                ELSE excluded.photo_uri
+            END
+    """)
+    suspend fun upsertFromRemote(
+        id: String, title: String, description: String, location: String?,
+        status: String, reportedBy: String, reportedAt: Long,
+        lastModifiedAt: Long, remotePhotoUri: String?
+    )
 
     @Query("UPDATE lost_items SET photo_uri = :photoUri WHERE id = :id")
     suspend fun updatePhotoUri(id: String, photoUri: String)

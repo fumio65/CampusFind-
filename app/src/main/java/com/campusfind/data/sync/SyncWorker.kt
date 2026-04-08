@@ -80,16 +80,16 @@ class SyncWorker @AssistedInject constructor(
     private suspend fun pushLostItems() {
         lostItemDao.getPendingSyncItems().forEach { entity ->
             try {
-                // If the photo is a local file path, upload it to Supabase Storage first.
-                val resolvedEntity = if (!photoRemote.isRemoteUrl(entity.photoUri) && entity.photoUri != null) {
-                    val url = photoRemote.uploadItemPhoto(entity.photoUri, entity.id)
-                    if (url != null) {
-                        lostItemDao.updatePhotoUri(entity.id, url)
-                        entity.copy(photoUri = url)
-                    } else entity
-                } else entity
+                // Upload local photo to Supabase Storage to get a public URL.
+                // The public URL goes into the Supabase table only — Room keeps the
+                // local file path so User A can always view their image offline.
+                val remotePhotoUrl: String? = when {
+                    entity.photoUri == null -> null
+                    photoRemote.isRemoteUrl(entity.photoUri) -> entity.photoUri
+                    else -> photoRemote.uploadItemPhoto(entity.photoUri, entity.id)
+                }
 
-                lostItemRemote.upsert(resolvedEntity.toDto())
+                lostItemRemote.upsert(entity.toDto().copy(photoUri = remotePhotoUrl))
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
@@ -154,8 +154,17 @@ class SyncWorker @AssistedInject constructor(
     }
 
     private suspend fun pullLostItems() {
-        val items = lostItemRemote.fetchAll().map { it.toEntity() }
-        lostItemDao.upsertAll(items)
+        // Smart upsert: inserts new items with the Supabase photo URL,
+        // but for items that already exist locally it preserves the local file path
+        // (so User A always loads their photo from internal storage offline).
+        lostItemRemote.fetchAll().forEach { dto ->
+            lostItemDao.upsertFromRemote(
+                id = dto.id, title = dto.title, description = dto.description,
+                location = dto.location, status = dto.status, reportedBy = dto.reportedBy,
+                reportedAt = dto.reportedAt, lastModifiedAt = dto.lastModifiedAt,
+                remotePhotoUri = dto.photoUri
+            )
+        }
     }
 
     private suspend fun pullClaims() {

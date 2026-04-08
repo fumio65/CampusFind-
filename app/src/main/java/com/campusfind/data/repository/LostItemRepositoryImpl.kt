@@ -1,8 +1,10 @@
 package com.campusfind.data.repository
 
+import android.net.Uri
 import com.campusfind.data.local.database.LostItemDao
 import com.campusfind.data.local.database.LostItemEntity
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.data.local.photo.PhotoManager
 import com.campusfind.data.sync.SyncManager
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
@@ -16,7 +18,8 @@ import javax.inject.Inject
 class LostItemRepositoryImpl @Inject constructor(
     private val dao: LostItemDao,
     private val sessionManager: SessionManager,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val photoManager: PhotoManager
 ) : LostItemRepository {
 
     override fun getAllItems(): Flow<List<LostItem>> =
@@ -42,6 +45,15 @@ class LostItemRepositoryImpl @Inject constructor(
             val currentUserId = sessionManager.currentUserId
                 ?: return Result.failure(Exception("Not logged in"))
 
+            // Convert content:// URI to a stable internal file path.
+            // content:// URIs become invalid after the picker is dismissed;
+            // PhotoManager copies the bytes to app internal storage.
+            val stablePhotoUri = if (photoUri?.startsWith("content://") == true) {
+                photoManager.savePhoto(Uri.parse(photoUri))
+            } else {
+                photoUri  // already a file path or null
+            }
+
             val entity = LostItemEntity(
                 id = UUID.randomUUID().toString(),
                 title = title,
@@ -51,7 +63,7 @@ class LostItemRepositoryImpl @Inject constructor(
                 reportedBy = currentUserId,
                 reportedAt = System.currentTimeMillis(),
                 lastModifiedAt = System.currentTimeMillis(),
-                photoUri = photoUri,
+                photoUri = stablePhotoUri,
                 syncStatus = SyncStatus.PENDING_SYNC.name
             )
             dao.insertItem(entity)
