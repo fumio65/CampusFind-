@@ -681,7 +681,14 @@ fun TipCard(
                     }
                     Text(tip.message, fontSize = 10.sp, color = colors.textSecondary,
                         lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp))
-                    if (isReportOwner && tip.authorId != currentUserId) {
+                    val lastReply = replies.lastOrNull()
+                    val isReporterTurn = lastReply == null || lastReply.authorId != reportOwnerId
+                    val isTipAuthorTurn = lastReply != null && lastReply.authorId == reportOwnerId
+                    val canReply = replies.size < 5 && (
+                        (isReportOwner && tip.authorId != currentUserId && isReporterTurn) ||
+                        (!isReportOwner && tip.authorId == currentUserId && isTipAuthorTurn)
+                    )
+                    if (canReply) {
                         Row(modifier = Modifier.padding(top = 5.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -693,7 +700,9 @@ fun TipCard(
                                     color = ModernAccent,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                             }
-                            Text("only you can reply", fontSize = 9.sp, color = colors.textMuted)
+                            if (isReportOwner) {
+                                Text("only you can reply", fontSize = 9.sp, color = colors.textMuted)
+                            }
                         }
                     }
                 }
