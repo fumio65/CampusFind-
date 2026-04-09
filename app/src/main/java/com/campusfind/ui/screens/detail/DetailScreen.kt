@@ -18,6 +18,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -87,7 +90,34 @@ fun DetailScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(colors.screenBg)) {
+    // Pull-to-refresh — waits for sync to land before hiding indicator
+    val pullRefreshState = rememberPullToRefreshState()
+
+    LaunchedEffect(pullRefreshState.isRefreshing) {
+        if (pullRefreshState.isRefreshing) {
+            val snapModified = viewModel.uiState.value.item?.lastModifiedAt ?: 0L
+            val snapStatus   = viewModel.uiState.value.item?.status
+            viewModel.refresh()
+            var elapsed = 0
+            while (elapsed < 5000) {
+                kotlinx.coroutines.delay(200)
+                elapsed += 200
+                val current = viewModel.uiState.value
+                if ((current.item?.lastModifiedAt ?: 0L) != snapModified ||
+                    current.item?.status != snapStatus) {
+                    break
+                }
+            }
+            pullRefreshState.endRefresh()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.screenBg)
+            .nestedScroll(pullRefreshState.nestedScrollConnection)
+    ) {
         when {
             uiState.isLoading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -107,17 +137,10 @@ fun DetailScreen(
 
                     // ── Hero image ─────────────────────────────────────────
                     Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-
                         Box(modifier = Modifier.fillMaxSize().background(
                             Brush.linearGradient(
                                 listOf(Color(0xFF12101E), Color(0xFF1E1340), Color(0xFF0E1F18)))))
 
-                        // FIX: Use buildImageRequest with explicit cache keys.
-                        // When a user edits the photo, the new upload gets a new
-                        // unique URL. buildImageRequest sets memoryCacheKey and
-                        // diskCacheKey to the URL string, so Coil always sees a
-                        // cache miss for the new URL and fetches fresh bytes —
-                        // instead of serving the old cached image for a changed URL.
                         val request  = buildImageRequest(context, item.photoUri)
                         val hasPhoto = request != null
 
@@ -470,6 +493,14 @@ fun DetailScreen(
                 }
             }
         }
+
+        // Pull-to-refresh indicator — always on top
+        PullToRefreshContainer(
+            state          = pullRefreshState,
+            modifier       = Modifier.align(Alignment.TopCenter),
+            containerColor = if (colors.isDark) Color(0xFF1C1B2E) else Color.White,
+            contentColor   = ModernAccent
+        )
     }
 }
 
@@ -674,7 +705,7 @@ fun TipCard(
                 Row(modifier = Modifier.fillMaxWidth().padding(start = 31.dp, top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(modifier = Modifier.width(2.dp).height(40.dp)
-                        .background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                        .background(Brush.verticalGradient(
                             listOf(ModernAccent, ModernAccent.copy(0.1f))), RoundedCornerShape(2.dp)))
                     BasicTextField(value = replyText,
                         onValueChange = { if (it.length <= MAX_TIP_LENGTH) replyText = it },

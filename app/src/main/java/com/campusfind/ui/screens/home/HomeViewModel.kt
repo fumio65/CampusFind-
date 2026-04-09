@@ -78,6 +78,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun refresh() {
+        syncManager.triggerNow()
+    }
+
     fun onFilterChanged(filter: ItemStatus?) {
         Log.d(TAG, "HomeViewModel: onFilterChanged($filter)")
         _selectedFilter.value = filter
