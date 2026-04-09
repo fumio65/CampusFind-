@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.data.network.NetworkObserver
 import com.campusfind.data.sync.SyncManager
+import com.campusfind.ui.components.ConnectivityBanner
 import com.campusfind.ui.navigation.CampusFindNavGraph
 import com.campusfind.ui.theme.CampusFindTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var syncManager: SyncManager
+    @Inject lateinit var networkObserver: NetworkObserver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,25 +46,26 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // FIX: Removed triggerNow() from onCreate.
-        // onResume() always fires immediately after onCreate() completes,
-        // so calling triggerNow() in both places caused two back-to-back
-        // SyncWorker runs at startup. The first run pushed items and added
-        // their IDs to pushedItemIds. The second run (from onResume) then
-        // skipped pulling those same items — so the UI never got the latest
-        // data from Supabase on the resume sync.
-        // onResume() alone is sufficient for both cold start and foreground.
-
         setContent {
             val isDarkMode by sessionManager.isDarkModeFlow.collectAsStateWithLifecycle()
+            val isOnline   by networkObserver.isOnline.collectAsStateWithLifecycle(initialValue = true)
+
             CampusFindTheme(darkTheme = isDarkMode) {
-                Surface(modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background) {
-                    val navController = rememberNavController()
-                    CampusFindNavGraph(
-                        navController  = navController,
-                        sessionManager = sessionManager
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color    = MaterialTheme.colorScheme.background
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Connectivity banner sits at the very top of the app,
+                        // above all navigation content so it's always visible
+                        ConnectivityBanner(isOnline = isOnline)
+
+                        val navController = rememberNavController()
+                        CampusFindNavGraph(
+                            navController  = navController,
+                            sessionManager = sessionManager
+                        )
+                    }
                 }
             }
         }

@@ -31,13 +31,9 @@ class LostItemRepositoryImpl @Inject constructor(
     override fun getItemsByUser(userId: String): Flow<List<LostItem>> =
         dao.getItemsByUser(userId).map { list -> list.map { it.toDomain() } }
 
-    // Continuous Flow observer — used by DetailViewModel so DetailScreen
-    // updates live whenever Room changes (sync, edit, status change, etc.)
     override fun observeItemById(id: String): Flow<LostItem?> =
         dao.observeItemById(id).map { it?.toDomain() }
 
-    // One-shot fetch — used by EditItemViewModel which only needs the
-    // current value once to pre-fill the form
     override suspend fun getItemById(id: String): LostItem? =
         dao.getItemById(id)?.toDomain()
 
@@ -125,6 +121,7 @@ class LostItemRepositoryImpl @Inject constructor(
         }
     }
 
+    // FIX: now maps syncStatus from entity to domain model
     private fun LostItemEntity.toDomain() = LostItem(
         id             = id,
         title          = title,
@@ -134,6 +131,7 @@ class LostItemRepositoryImpl @Inject constructor(
         reportedBy     = reportedBy,
         reportedAt     = reportedAt,
         lastModifiedAt = lastModifiedAt,
-        photoUri       = photoUri
+        photoUri       = photoUri,
+        syncStatus     = try { SyncStatus.valueOf(syncStatus) } catch (e: Exception) { SyncStatus.SYNCED }
     )
 }

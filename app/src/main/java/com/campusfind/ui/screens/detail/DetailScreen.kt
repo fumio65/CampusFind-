@@ -49,6 +49,7 @@ import com.campusfind.domain.model.Claim
 import com.campusfind.domain.model.ClaimReply
 import com.campusfind.domain.model.ClaimStatus
 import com.campusfind.domain.model.ItemStatus
+import com.campusfind.domain.model.SyncStatus
 import com.campusfind.domain.model.Tip
 import com.campusfind.ui.components.HeroBackButton
 import com.campusfind.ui.components.VerifiedClaimerAvatar
@@ -98,15 +99,13 @@ fun DetailScreen(
             val snapModified = viewModel.uiState.value.item?.lastModifiedAt ?: 0L
             val snapStatus   = viewModel.uiState.value.item?.status
             viewModel.refresh()
-            var elapsed = 0
-            while (elapsed < 5000) {
-                kotlinx.coroutines.delay(200)
-                elapsed += 200
-                val current = viewModel.uiState.value
-                if ((current.item?.lastModifiedAt ?: 0L) != snapModified ||
-                    current.item?.status != snapStatus) {
-                    break
-                }
+            var waited = 0
+            while (waited < 5000) {
+                kotlinx.coroutines.delay(100)
+                waited += 100
+                val s   = viewModel.uiState.value
+                val mod = s.item?.lastModifiedAt ?: 0L
+                if (mod != snapModified || s.item?.status != snapStatus) break
             }
             pullRefreshState.endRefresh()
         }
@@ -241,7 +240,21 @@ fun DetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MetaPill("📅", "REPORTED", formatDate(item.reportedAt), colors, modifier = Modifier.weight(1f))
                         MetaPill("🕐", "TIME",     formatTime(item.reportedAt), colors, modifier = Modifier.weight(1f))
-                        MetaPill("📍", "SYNC",     "Local", colors, ModernAccent, modifier = Modifier.weight(1f))
+                        run {
+                            val syncLabel = when (item.syncStatus.name) {
+                                "SYNCED"       -> "Synced"
+                                "PENDING_SYNC" -> "Pending"
+                                "SYNC_FAILED"  -> "Failed"
+                                else           -> "Local"
+                            }
+                            val syncColor = when (item.syncStatus.name) {
+                                "SYNCED"       -> ModernFound
+                                "PENDING_SYNC" -> Color(0xFFFFB74D)
+                                "SYNC_FAILED"  -> ModernError
+                                else           -> ModernAccent
+                            }
+                            MetaPill("☁️", "SYNC", syncLabel, colors, syncColor, modifier = Modifier.weight(1f))
+                        }
                     }
 
                     // ── Scrollable content ─────────────────────────────────
