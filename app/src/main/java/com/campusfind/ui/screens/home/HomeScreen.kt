@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,11 +37,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.theme.*
-import java.io.File
+import com.campusfind.ui.util.buildImageRequest
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -56,16 +58,16 @@ fun HomeScreen(
     unreadNotificationCount: Int = 0,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = LocalAppColors.current
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredItems = remember(uiState.items, searchQuery) {
-        if (searchQuery.isBlank()) uiState.items
-        else uiState.items.filter { item ->
-            item.title.contains(searchQuery, ignoreCase = true) ||
-                    item.description.contains(searchQuery, ignoreCase = true)
-        }
+    // No remember() wrapper — always recomputes on recomposition so the
+    // UI immediately reflects any Room update received by the StateFlow.
+    val filteredItems = if (searchQuery.isBlank()) uiState.items
+    else uiState.items.filter { item ->
+        item.title.contains(searchQuery, ignoreCase = true) ||
+                item.description.contains(searchQuery, ignoreCase = true)
     }
 
     val listState = rememberLazyListState()
@@ -83,7 +85,6 @@ fun HomeScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── Hero ───────────────────────────────────────────────────
             GradientHero(
                 itemCount             = filteredItems.size,
                 selectedFilter        = uiState.selectedFilter,
@@ -97,7 +98,6 @@ fun HomeScreen(
                 currentUserName       = currentUserName
             )
 
-            // ── Content ────────────────────────────────────────────────
             when {
                 uiState.isLoading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -147,7 +147,6 @@ fun HomeScreen(
             }
         }
 
-        // ── FAB ────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -185,20 +184,16 @@ private fun EmptyState(icon: String, title: String, subtitle: String, colors: Ap
             modifier = Modifier.padding(32.dp)
         ) {
             Text(icon, fontSize = 56.sp)
-            Text(
-                title, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                color = colors.textPrimary, textAlign = TextAlign.Center
-            )
-            Text(
-                subtitle, fontSize = 13.sp,
-                color = colors.textMuted, textAlign = TextAlign.Center
-            )
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                color = colors.textPrimary, textAlign = TextAlign.Center)
+            Text(subtitle, fontSize = 13.sp,
+                color = colors.textMuted, textAlign = TextAlign.Center)
         }
     }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// HERO — redesigned with wave bottom edge and cleaner layout
+// HERO
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -224,7 +219,6 @@ fun GradientHero(
                 )
             )
     ) {
-        // Ambient glow orbs — clipped by parent so they don't bleed
         Box(modifier = Modifier.size(180.dp).offset(x = 200.dp, y = (-40).dp)
             .background(ModernAccent.copy(alpha = 0.15f), CircleShape))
         Box(modifier = Modifier.size(100.dp).offset(x = 240.dp, y = 20.dp)
@@ -236,110 +230,68 @@ fun GradientHero(
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(6.dp))
 
-            // ── Top bar ────────────────────────────────────────────────────
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Bell with badge
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         IconButton36(onClick = onNavigateToNotifications) {
                             Text("🔔", fontSize = 15.sp, color = Color.White)
                         }
                         if (unreadCount > 0) {
                             Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(16.dp)
-                                    .shadow(4.dp, CircleShape)
-                                    .background(ModernLost, CircleShape),
+                                modifier = Modifier.align(Alignment.TopEnd).size(16.dp)
+                                    .shadow(4.dp, CircleShape).background(ModernLost, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = if (unreadCount > 9) "9+" else "$unreadCount",
-                                    fontSize = 7.sp,
-                                    lineHeight = 7.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White,
+                                    fontSize = 7.sp, lineHeight = 7.sp,
+                                    fontWeight = FontWeight.Black, color = Color.White,
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
                     }
-
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // ── App title + subtitle ───────────────────────────────────────
             Column(modifier = Modifier.padding(horizontal = 18.dp)) {
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Black)) {
-                            append("Campus")
-                        }
-                        withStyle(SpanStyle(color = ModernAccent, fontWeight = FontWeight.Black)) {
-                            append("Find+")
-                        }
+                        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Black)) { append("Campus") }
+                        withStyle(SpanStyle(color = ModernAccent, fontWeight = FontWeight.Black)) { append("Find+") }
                     },
                     fontSize = 28.sp,
-                    style = LocalTextStyle.current.copy(
-                        shadow = Shadow(Color.Black.copy(0.5f), Offset(0f, 2f), 16f)
-                    )
+                    style = LocalTextStyle.current.copy(shadow = Shadow(Color.Black.copy(0.5f), Offset(0f, 2f), 16f))
                 )
                 Spacer(Modifier.height(3.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(
-                                if (itemCount > 0) ModernLost else ModernFound,
-                                CircleShape
-                            )
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(6.dp).background(
+                        if (itemCount > 0) ModernLost else ModernFound, CircleShape))
                     Text(
                         text = if (itemCount > 0) "$itemCount item${if (itemCount > 1) "s" else ""} reported on campus"
                         else "No active reports — campus is clear!",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.65f)
+                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.65f)
                     )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Search bar — frosted glass ─────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.10f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.10f))) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Default.Search, contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                     BasicTextField(
                         value = searchQuery,
                         onValueChange = onSearchQueryChanged,
@@ -349,23 +301,15 @@ fun GradientHero(
                         cursorBrush = SolidColor(Color.White),
                         decorationBox = { inner ->
                             if (searchQuery.isEmpty()) {
-                                Text(
-                                    "Search lost items...",
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp,
-                                    color = Color.White.copy(alpha = 0.4f)
-                                )
+                                Text("Search lost items...", fontSize = 14.sp,
+                                    lineHeight = 20.sp, color = Color.White.copy(alpha = 0.4f))
                             }
                             inner()
                         }
                     )
                     if (searchQuery.isNotEmpty()) {
-                        Surface(
-                            onClick = { onSearchQueryChanged("") },
-                            modifier = Modifier.size(24.dp),
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.15f)
-                        ) {
+                        Surface(onClick = { onSearchQueryChanged("") }, modifier = Modifier.size(24.dp),
+                            shape = CircleShape, color = Color.White.copy(alpha = 0.15f)) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text("✕", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                             }
@@ -376,42 +320,23 @@ fun GradientHero(
 
             Spacer(Modifier.height(14.dp))
 
-            // ── Filter chips ───────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // ALL chip
-                FilterChipModern(
-                    label    = "All",
-                    count    = null,
-                    isActive = selectedFilter == null,
+                verticalAlignment = Alignment.CenterVertically) {
+                FilterChipModern(label = "All", count = null, isActive = selectedFilter == null,
                     activeGradient = listOf(Color.White.copy(0.25f), Color.White.copy(0.15f)),
-                    activeLabelColor = Color.White,
-                    onClick  = { onFilterChanged(null) }
-                )
-                // LOST chip
-                FilterChipModern(
-                    label    = "Lost",
-                    count    = lostCount,
+                    activeLabelColor = Color.White, onClick = { onFilterChanged(null) })
+                FilterChipModern(label = "Lost", count = lostCount,
                     isActive = selectedFilter == ItemStatus.LOST,
                     activeGradient = listOf(ModernLost, Color(0xFFCC3355)),
                     activeLabelColor = Color.White,
-                    onClick  = { onFilterChanged(if (selectedFilter == ItemStatus.LOST) null else ItemStatus.LOST) }
-                )
-                // FOUND chip
-                FilterChipModern(
-                    label    = "Found",
-                    count    = foundCount,
+                    onClick = { onFilterChanged(if (selectedFilter == ItemStatus.LOST) null else ItemStatus.LOST) })
+                FilterChipModern(label = "Found", count = foundCount,
                     isActive = selectedFilter == ItemStatus.FOUND,
                     activeGradient = listOf(ModernFound, Color(0xFF20B080)),
                     activeLabelColor = Color.White,
-                    onClick  = { onFilterChanged(if (selectedFilter == ItemStatus.FOUND) null else ItemStatus.FOUND) }
-                )
+                    onClick = { onFilterChanged(if (selectedFilter == ItemStatus.FOUND) null else ItemStatus.FOUND) })
             }
 
             Spacer(Modifier.height(14.dp))
@@ -419,81 +344,41 @@ fun GradientHero(
     }
 }
 
-// ── Reusable frosted icon button ───────────────────────────────────────────
-
 @Composable
 private fun IconButton36(onClick: () -> Unit, content: @Composable () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(36.dp),
-        shape = CircleShape,
+    Surface(onClick = onClick, modifier = Modifier.size(36.dp), shape = CircleShape,
         color = Color.White.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
-    ) {
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))) {
         Box(contentAlignment = Alignment.Center) { content() }
     }
 }
 
-// ── Modern filter chip with gradient fill ─────────────────────────────────
-
 @Composable
 private fun FilterChipModern(
-    label: String,
-    count: Int?,
-    isActive: Boolean,
-    activeGradient: List<Color>,
-    activeLabelColor: Color,
-    onClick: () -> Unit
+    label: String, count: Int?, isActive: Boolean,
+    activeGradient: List<Color>, activeLabelColor: Color, onClick: () -> Unit
 ) {
-    val bgBrush = if (isActive)
-        Brush.linearGradient(activeGradient)
-    else
-        Brush.linearGradient(listOf(Color.White.copy(0.08f), Color.White.copy(0.08f)))
+    val bgBrush = if (isActive) Brush.linearGradient(activeGradient)
+    else Brush.linearGradient(listOf(Color.White.copy(0.08f), Color.White.copy(0.08f)))
 
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .then(
-                if (isActive)
-                    Modifier.shadow(6.dp, RoundedCornerShape(20.dp),
-                        ambientColor = activeGradient.first().copy(0.5f),
-                        spotColor = activeGradient.first().copy(0.4f))
-                else Modifier
-            )
-            .background(bgBrush)
-            .clip(RoundedCornerShape(20.dp))
-    ) {
-        Surface(
-            onClick = onClick,
-            color   = Color.Transparent,
-            shape   = RoundedCornerShape(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+    Box(modifier = Modifier.clip(RoundedCornerShape(20.dp))
+        .then(if (isActive) Modifier.shadow(6.dp, RoundedCornerShape(20.dp),
+            ambientColor = activeGradient.first().copy(0.5f),
+            spotColor = activeGradient.first().copy(0.4f)) else Modifier)
+        .background(bgBrush).clip(RoundedCornerShape(20.dp))) {
+        Surface(onClick = onClick, color = Color.Transparent, shape = RoundedCornerShape(20.dp)) {
+            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    label,
-                    fontSize = 12.sp,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(label, fontSize = 12.sp,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isActive) activeLabelColor else Color.White.copy(alpha = 0.6f)
-                )
+                    color = if (isActive) activeLabelColor else Color.White.copy(alpha = 0.6f))
                 if (count != null && count > 0) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                Color.White.copy(alpha = if (isActive) 0.30f else 0.12f),
-                                RoundedCornerShape(10.dp)
-                            )
-                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            count.toString(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isActive) Color.White else Color.White.copy(0.5f)
-                        )
+                    Box(modifier = Modifier.background(
+                        Color.White.copy(alpha = if (isActive) 0.30f else 0.12f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 7.dp, vertical = 2.dp)) {
+                        Text(count.toString(), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                            color = if (isActive) Color.White else Color.White.copy(0.5f))
                     }
                 }
             }
@@ -502,12 +387,13 @@ private fun FilterChipModern(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// ITEM CARD — redesigned for premium feel
+// ITEM CARD
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
 fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
     val colors = LocalAppColors.current
+    val context = LocalContext.current
 
     val statusColor = when (item.status) {
         ItemStatus.LOST  -> ModernLost
@@ -519,148 +405,83 @@ fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
         modifier  = Modifier.fillMaxWidth(),
         shape     = RoundedCornerShape(20.dp),
         colors    = CardDefaults.cardColors(
-            containerColor = if (colors.isDark) Color(0xFF1C1B2E) else colors.cardBg
-        ),
-        border    = BorderStroke(
-            width = if (colors.isDark) 1.dp else 1.dp,
-            color = if (colors.isDark) Color.White.copy(alpha = 0.08f) else colors.cardBorder
-        ),
+            containerColor = if (colors.isDark) Color(0xFF1C1B2E) else colors.cardBg),
+        border    = BorderStroke(1.dp,
+            if (colors.isDark) Color.White.copy(alpha = 0.08f) else colors.cardBorder),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (colors.isDark) 0.dp else 4.dp
-        )
+            defaultElevation = if (colors.isDark) 0.dp else 4.dp)
     ) {
         Column {
-            // ── Photo / Placeholder ────────────────────────────────────────
             Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                val hasPhoto  = !item.photoUri.isNullOrBlank()
-                val photoFile = if (hasPhoto) remember(item.photoUri) { File(item.photoUri!!) } else null
 
-                if (hasPhoto && photoFile?.exists() == true) {
+                // FIX: Use buildImageRequest with explicit memoryCacheKey and
+                // diskCacheKey set to the photoUri string. This ensures Coil
+                // always fetches a new image when the URL changes after an edit,
+                // instead of serving a stale cached bitmap for the same URL key.
+                val request  = buildImageRequest(context, item.photoUri)
+                val hasPhoto = request != null
+
+                if (hasPhoto) {
                     Image(
-                        painter          = rememberAsyncImagePainter(photoFile),
+                        painter            = rememberAsyncImagePainter(request),
                         contentDescription = "Item photo",
-                        modifier         = Modifier.fillMaxSize().clip(
-                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-                        ),
-                        contentScale     = ContentScale.Crop
+                        modifier           = Modifier.fillMaxSize().clip(
+                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                        contentScale       = ContentScale.Crop
                     )
-                    // Bottom scrim for readability
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.6f to Color.Transparent,
-                                1f to Color.Black.copy(alpha = 0.5f)
-                            )
+                    Box(modifier = Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.6f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.5f)
                         )
-                    )
+                    ))
                 } else {
-                    GradientPlaceholder(
-                        modifier = Modifier.fillMaxSize().clip(
-                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-                        )
-                    )
+                    GradientPlaceholder(modifier = Modifier.fillMaxSize().clip(
+                        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)))
                 }
 
-                // ── Status badge ───────────────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .align(Alignment.TopStart)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(statusColor.copy(0.85f), statusColor.copy(0.7f))
-                            )
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                Box(modifier = Modifier.padding(12.dp).align(Alignment.TopStart)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Brush.linearGradient(
+                        listOf(statusColor.copy(0.85f), statusColor.copy(0.7f))))) {
+                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Box(modifier = Modifier.size(5.dp).background(Color.White, CircleShape))
-                        Text(
-                            item.status.name,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                            letterSpacing = 0.5.sp
-                        )
+                        Text(item.status.name, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold,
+                            color = Color.White, letterSpacing = 0.5.sp)
                     }
                 }
             }
 
-            // ── Content ────────────────────────────────────────────────────
             Column(modifier = Modifier.padding(14.dp)) {
-
-                Text(
-                    item.title,
-                    fontSize   = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color      = colors.textPrimary,
-                    maxLines   = 1,
-                    overflow   = TextOverflow.Ellipsis
-                )
-
+                Text(item.title, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                    color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
-
-                Text(
-                    item.description,
-                    fontSize   = 12.sp,
-                    color      = colors.textSecondary,
-                    lineHeight = 17.sp,
-                    maxLines   = 2,
-                    overflow   = TextOverflow.Ellipsis
-                )
-
+                Text(item.description, fontSize = 12.sp, color = colors.textSecondary,
+                    lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(12.dp))
-
-                // ── Bottom row: pills + reporter ───────────────────────────
-                Row(
-                    modifier                = Modifier.fillMaxWidth(),
-                    horizontalArrangement   = Arrangement.SpaceBetween,
-                    verticalAlignment       = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        MetaPill(
-                            icon = "📍",
-                            text = if (!item.location.isNullOrBlank()) item.location else "Campus"
-                        )
+                        MetaPill(icon = "📍",
+                            text = if (!item.location.isNullOrBlank()) item.location else "Campus")
                         MetaPill(icon = "🕐", text = formatTimestamp(item.reportedAt))
                     }
-
-                    // Reporter — constrained so it never overflows
-                    Row(
-                        modifier = Modifier.widthIn(max = 100.dp),
-                        verticalAlignment     = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (colors.isDark) ModernAccent.copy(alpha = 0.25f)
-                                    else colors.avatarBg
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = reporterName.firstOrNull()?.uppercase() ?: "?",
-                                fontSize = 10.sp,
-                                lineHeight = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (colors.isDark) ModernAccent else colors.textMuted
-                            )
+                    Row(modifier = Modifier.widthIn(max = 100.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Box(modifier = Modifier.size(22.dp).clip(CircleShape)
+                            .background(if (colors.isDark) ModernAccent.copy(alpha = 0.25f) else colors.avatarBg),
+                            contentAlignment = Alignment.Center) {
+                            Text(text = reporterName.firstOrNull()?.uppercase() ?: "?",
+                                fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold,
+                                color = if (colors.isDark) ModernAccent else colors.textMuted)
                         }
-                        Text(
-                            reporterName,
-                            fontSize  = 10.sp,
-                            color     = colors.textMuted,
-                            maxLines  = 1,
-                            overflow  = TextOverflow.Ellipsis
-                        )
+                        Text(reporterName, fontSize = 10.sp, color = colors.textMuted,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -675,35 +496,20 @@ fun ModernItemCard(item: LostItem, reporterName: String, onClick: () -> Unit) {
 @Composable
 fun GradientPlaceholder(modifier: Modifier = Modifier) {
     Box(modifier = modifier) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF1A1030), Color(0xFF2A2050), Color(0xFF102820))
-                )
-            )
-        )
-        // Glow orbs
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(Color(0xFF1A1030), Color(0xFF2A2050), Color(0xFF102820)))))
         Box(modifier = Modifier.size(120.dp).offset(x = 180.dp, y = (-30).dp)
             .background(ModernAccent.copy(alpha = 0.12f), CircleShape))
         Box(modifier = Modifier.size(80.dp).offset(x = 200.dp, y = (-10).dp)
             .background(ModernAccent.copy(alpha = 0.08f), CircleShape))
         Box(modifier = Modifier.size(90.dp).offset(x = (-10).dp, y = 80.dp)
             .background(ModernFound.copy(alpha = 0.08f), CircleShape))
-
-        // Placeholder — minimal, no boxy container
-        Column(
-            modifier = Modifier.align(Alignment.Center),
+        Column(modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("📷", fontSize = 36.sp, color = Color.White.copy(alpha = 0.35f))
-            Text(
-                "No photo",
-                fontSize      = 11.sp,
-                color         = Color.White.copy(alpha = 0.35f),
-                fontWeight    = FontWeight.Medium,
-                letterSpacing = 0.5.sp
-            )
+            Text("No photo", fontSize = 11.sp, color = Color.White.copy(alpha = 0.35f),
+                fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
         }
     }
 }
@@ -715,16 +521,11 @@ fun GradientPlaceholder(modifier: Modifier = Modifier) {
 @Composable
 fun MetaPill(icon: String, text: String) {
     val colors = LocalAppColors.current
-    Surface(
-        shape  = RoundedCornerShape(10.dp),
-        color  = colors.pillBg,
-        border = BorderStroke(1.dp, colors.pillBorder)
-    ) {
-        Row(
-            modifier              = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    Surface(shape = RoundedCornerShape(10.dp), color = colors.pillBg,
+        border = BorderStroke(1.dp, colors.pillBorder)) {
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
+            verticalAlignment = Alignment.CenterVertically) {
             Text(icon, fontSize = 10.sp)
             Text(text, fontSize = 10.sp, color = colors.textSecondary, fontWeight = FontWeight.Medium)
         }

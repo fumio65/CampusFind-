@@ -1,6 +1,7 @@
 package com.campusfind.data.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -28,6 +29,11 @@ import com.campusfind.data.remote.source.UserRemoteDataSource
 import com.campusfind.domain.model.SyncStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+
+private const val TAG = "SYNC_DEBUG"
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -46,234 +52,229 @@ class SyncWorker @AssistedInject constructor(
     private val photoRemote: PhotoRemoteDataSource,
 ) : CoroutineWorker(context, params) {
 
+    // Local to each doWork() call — cannot leak between WorkManager runs
+    private var pushedItemIds = mutableSetOf<String>()
+
     override suspend fun doWork(): Result {
+        Log.d(TAG, "=== SyncWorker START attempt=$runAttemptCount ===")
         return try {
+            pushedItemIds = mutableSetOf() // fresh set every run — never leaks between WorkManager executions
             pushPending()
             pullAll()
+            Log.d(TAG, "=== SyncWorker SUCCESS ===")
             Result.success()
         } catch (e: Exception) {
+            Log.e(TAG, "=== SyncWorker FAILED: ${e::class.simpleName}: ${e.message} ===")
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 
-    // ── Push local PENDING_SYNC records to Supabase ──────────────────────
+    // ── Push ─────────────────────────────────────────────────────────────
 
     private suspend fun pushPending() {
         pushUsers()
         pushLostItems()
-        pushClaims()
-        pushClaimReplies()
-        pushTips()
+        coroutineScope {
+            val c = async { pushClaims() }
+            val r = async { pushClaimReplies() }
+            val t = async { pushTips() }
+            awaitAll(c, r, t)
+        }
     }
 
     private suspend fun pushUsers() {
-        userDao.getPendingSyncUsers().forEach { entity ->
+        val pending = userDao.getPendingSyncUsers()
+        Log.d(TAG, "pushUsers: ${pending.size} pending")
+        pending.forEach { entity ->
             try {
                 userRemote.upsert(entity.toDto())
                 userDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
+                Log.e(TAG, "pushUsers FAILED ${entity.email}: ${e.message}")
                 userDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
     }
 
     private suspend fun pushLostItems() {
-        lostItemDao.getPendingSyncItems().forEach { entity ->
+        val pending = lostItemDao.getPendingSyncItems()
+        Log.d(TAG, "pushLostItems: ${pending.size} pending")
+        pending.forEach { entity ->
             try {
-                // Upload local photo to Supabase Storage to get a public URL.
-                // The public URL goes into the Supabase table only — Room keeps the
-                // local file path so User A can always view their image offline.
                 val remotePhotoUrl: String? = when {
-                    entity.photoUri == null -> null
+                    entity.photoUri == null                   -> null
                     photoRemote.isRemoteUrl(entity.photoUri) -> entity.photoUri
                     else -> photoRemote.uploadItemPhoto(entity.photoUri, entity.id)
                 }
-
                 lostItemRemote.upsert(entity.toDto().copy(photoUri = remotePhotoUrl))
+                if (remotePhotoUrl != null && remotePhotoUrl != entity.photoUri) {
+                    lostItemDao.updatePhotoUri(entity.id, remotePhotoUrl)
+                    photoRemote.deleteOldItemPhotos(itemId = entity.id, keepUrl = remotePhotoUrl)
+                }
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
+                pushedItemIds.add(entity.id)
+                Log.d(TAG, "pushLostItems: synced '${entity.title}'")
             } catch (e: Exception) {
+                Log.e(TAG, "pushLostItems FAILED '${entity.title}': ${e.message}")
                 lostItemDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
     }
 
     private suspend fun pushClaims() {
-        claimDao.getPendingSyncClaims().forEach { entity ->
+        val pending = claimDao.getPendingSyncClaims()
+        Log.d(TAG, "pushClaims: ${pending.size} pending")
+        pending.forEach { entity ->
             try {
                 claimRemote.upsert(entity.toDto())
                 claimDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
+                Log.e(TAG, "pushClaims FAILED: ${e.message}")
                 claimDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
     }
 
     private suspend fun pushClaimReplies() {
-        claimReplyDao.getPendingSyncReplies().forEach { entity ->
+        val pending = claimReplyDao.getPendingSyncReplies()
+        Log.d(TAG, "pushClaimReplies: ${pending.size} pending")
+        pending.forEach { entity ->
             try {
                 claimReplyRemote.upsert(entity.toDto())
                 claimReplyDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
+                Log.e(TAG, "pushClaimReplies FAILED: ${e.message}")
                 claimReplyDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
     }
 
     private suspend fun pushTips() {
-        tipDao.getPendingSyncTips().forEach { entity ->
+        val pending = tipDao.getPendingSyncTips()
+        Log.d(TAG, "pushTips: ${pending.size} pending")
+        pending.forEach { entity ->
             try {
                 tipRemote.upsert(entity.toDto())
                 tipDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
             } catch (e: Exception) {
+                Log.e(TAG, "pushTips FAILED: ${e.message}")
                 tipDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
     }
 
-    // ── Pull all records from Supabase and merge into Room ───────────────
-    // Order: users first (FK dependency), then items, claims, replies, tips
+    // ── Pull ─────────────────────────────────────────────────────────────
 
-    private suspend fun pullAll() {
-        pullUsers()
-        pullLostItems()
-        pullClaims()
-        pullClaimReplies()
-        pullTips()
-    }
+    private suspend fun pullAll() = coroutineScope {
+        val usersDeferred   = async { userRemote.fetchAll() }
+        val itemsDeferred   = async { lostItemRemote.fetchAll() }
+        val claimsDeferred  = async { claimRemote.fetchAll() }
+        val repliesDeferred = async { claimReplyRemote.fetchAll() }
+        val tipsDeferred    = async { tipRemote.fetchAll() }
 
-    private suspend fun pullUsers() {
-        userRemote.fetchAll().forEach { dto ->
-            // Step 1: Insert only if this user doesn't exist locally yet.
-            //         Uses the hash from Supabase so login works on a fresh device.
-            //         INSERT OR IGNORE means existing local users are never touched.
-            userDao.insertFromRemoteIfAbsent(dto.id, dto.fullName, dto.email, dto.passwordHash, dto.messengerHandle, dto.createdAt)
-            // Step 2: Update only non-sensitive profile fields for existing local users.
-            //         The local password_hash is always the authority on an existing device.
+        val users   = usersDeferred.await()
+        val items   = itemsDeferred.await()
+        val claims  = claimsDeferred.await()
+        val replies = repliesDeferred.await()
+        val tips    = tipsDeferred.await()
+
+        Log.d(TAG, "pullAll fetched: users=${users.size} items=${items.size} " +
+                "claims=${claims.size} replies=${replies.size} tips=${tips.size}")
+
+        users.forEach { dto ->
+            userDao.insertFromRemoteIfAbsent(
+                dto.id, dto.fullName, dto.email,
+                dto.passwordHash, dto.messengerHandle, dto.createdAt
+            )
             userDao.updateNonSensitiveFromRemote(dto.id, dto.fullName, dto.messengerHandle)
         }
-    }
 
-    private suspend fun pullLostItems() {
-        // Smart upsert: inserts new items with the Supabase photo URL,
-        // but for items that already exist locally it preserves the local file path
-        // (so User A always loads their photo from internal storage offline).
-        lostItemRemote.fetchAll().forEach { dto ->
+        items.forEach { dto ->
+            if (dto.id in pushedItemIds) {
+                Log.d(TAG, "pullAll: skipping pushed item '${dto.title}'")
+                return@forEach
+            }
+
+            // Log what Supabase is sending
+            Log.d(TAG, "SUPABASE item: id=${dto.id.takeLast(8)} title='${dto.title}' status=${dto.status}")
+
             lostItemDao.upsertFromRemote(
-                id = dto.id, title = dto.title, description = dto.description,
-                location = dto.location, status = dto.status, reportedBy = dto.reportedBy,
-                reportedAt = dto.reportedAt, lastModifiedAt = dto.lastModifiedAt,
-                remotePhotoUri = dto.photoUri
+                id             = dto.id,
+                title          = dto.title,
+                description    = dto.description,
+                location       = dto.location,
+                status         = dto.status,
+                reportedBy     = dto.reportedBy,
+                reportedAt     = dto.reportedAt,
+                lastModifiedAt = dto.lastModifiedAt,
+                remotePhotoUri = dto.photoUri?.takeIf { it.startsWith("https://") }
             )
+
+            // Log what Room actually has after the upsert
+            val after = lostItemDao.getItemById(dto.id)
+            Log.d(TAG, "ROOM after upsert: id=${dto.id.takeLast(8)} title='${after?.title}' status=${after?.status}")
         }
+        Log.d(TAG, "pullAll: items written to Room — Flow should emit now")
+
+        coroutineScope {
+            val wc = async { claimDao.upsertAll(claims.map { it.toEntity() }) }
+            val wr = async { claimReplyDao.upsertAll(replies.map { it.toEntity() }) }
+            val wt = async { tipDao.upsertAll(tips.map { it.toEntity() }) }
+            awaitAll(wc, wr, wt)
+        }
+
+        Log.d(TAG, "pullAll: DONE")
     }
 
-    private suspend fun pullClaims() {
-        val claims = claimRemote.fetchAll().map { it.toEntity() }
-        claimDao.upsertAll(claims)
-    }
-
-    private suspend fun pullClaimReplies() {
-        val replies = claimReplyRemote.fetchAll().map { it.toEntity() }
-        claimReplyDao.upsertAll(replies)
-    }
-
-    private suspend fun pullTips() {
-        val tips = tipRemote.fetchAll().map { it.toEntity() }
-        tipDao.upsertAll(tips)
-    }
-
-    // ── DTO converters ───────────────────────────────────────────────────
+    // ── DTO / Entity converters ──────────────────────────────────────────
 
     private fun UserEntity.toDto() = UserDto(
-        id = id,
-        fullName = fullName,
-        email = email,
-        messengerHandle = messengerHandle,
-        createdAt = createdAt,
-        passwordHash = passwordHash
+        id = id, fullName = fullName, email = email,
+        messengerHandle = messengerHandle, createdAt = createdAt, passwordHash = passwordHash
     )
 
     private fun LostItemEntity.toDto() = LostItemDto(
-        id = id,
-        title = title,
-        description = description,
-        location = location,
-        status = status,
-        reportedBy = reportedBy,
-        reportedAt = reportedAt,
-        lastModifiedAt = lastModifiedAt,
-        photoUri = photoUri
+        id = id, title = title, description = description, location = location,
+        status = status, reportedBy = reportedBy, reportedAt = reportedAt,
+        lastModifiedAt = lastModifiedAt, photoUri = photoUri
     )
 
     private fun ClaimEntity.toDto() = ClaimDto(
-        id = id,
-        itemId = itemId,
-        claimedBy = claimedBy,
-        message = message,
-        photoUri = photoUri,
-        status = status,
-        claimedAt = claimedAt,
-        reviewedAt = reviewedAt
+        id = id, itemId = itemId, claimedBy = claimedBy, message = message,
+        photoUri = photoUri, status = status, claimedAt = claimedAt, reviewedAt = reviewedAt
     )
 
     private fun ClaimReplyEntity.toDto() = ClaimReplyDto(
-        id = id,
-        claimId = claimId,
-        authorId = authorId,
-        message = message,
-        createdAt = createdAt
+        id = id, claimId = claimId, authorId = authorId,
+        message = message, createdAt = createdAt
     )
 
     private fun TipEntity.toDto() = TipDto(
-        id = id,
-        itemId = itemId,
-        authorId = authorId,
-        message = message,
-        createdAt = createdAt,
-        parentTipId = parentTipId
+        id = id, itemId = itemId, authorId = authorId,
+        message = message, createdAt = createdAt, parentTipId = parentTipId
     )
 
     private fun LostItemDto.toEntity() = LostItemEntity(
-        id = id,
-        title = title,
-        description = description,
-        location = location,
-        status = status,
-        reportedBy = reportedBy,
-        reportedAt = reportedAt,
-        lastModifiedAt = lastModifiedAt,
-        photoUri = photoUri,
+        id = id, title = title, description = description, location = location,
+        status = status, reportedBy = reportedBy, reportedAt = reportedAt,
+        lastModifiedAt = lastModifiedAt, photoUri = photoUri,
         syncStatus = SyncStatus.SYNCED.name
     )
 
     private fun ClaimDto.toEntity() = ClaimEntity(
-        id = id,
-        itemId = itemId,
-        claimedBy = claimedBy,
-        message = message,
-        photoUri = photoUri,
-        status = status,
-        claimedAt = claimedAt,
-        reviewedAt = reviewedAt,
-        syncStatus = SyncStatus.SYNCED.name
+        id = id, itemId = itemId, claimedBy = claimedBy, message = message,
+        photoUri = photoUri, status = status, claimedAt = claimedAt,
+        reviewedAt = reviewedAt, syncStatus = SyncStatus.SYNCED.name
     )
 
     private fun ClaimReplyDto.toEntity() = ClaimReplyEntity(
-        id = id,
-        claimId = claimId,
-        authorId = authorId,
-        message = message,
-        createdAt = createdAt,
-        syncStatus = SyncStatus.SYNCED.name
+        id = id, claimId = claimId, authorId = authorId, message = message,
+        createdAt = createdAt, syncStatus = SyncStatus.SYNCED.name
     )
 
     private fun TipDto.toEntity() = TipEntity(
-        id = id,
-        itemId = itemId,
-        authorId = authorId,
-        message = message,
-        createdAt = createdAt,
-        parentTipId = parentTipId,
+        id = id, itemId = itemId, authorId = authorId, message = message,
+        createdAt = createdAt, parentTipId = parentTipId,
         syncStatus = SyncStatus.SYNCED.name
     )
 }

@@ -128,6 +128,12 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.6.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Coil
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // OkHttp (usually already present via Supabase)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 kapt {
