@@ -20,9 +20,12 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "campusfind_database"
+            "campusfind_database"   // ← must match your existing DB name
         )
-            .addMigrations(AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4   // ← adds profile_photo_uri to users
+            )
             .build()
     }
 

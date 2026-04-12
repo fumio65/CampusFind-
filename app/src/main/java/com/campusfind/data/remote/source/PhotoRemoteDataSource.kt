@@ -10,64 +10,68 @@ class PhotoRemoteDataSource @Inject constructor(
     private val supabase: SupabaseClient
 ) {
     companion object {
-        private const val ITEM_PHOTOS_BUCKET  = "item-photos"
-        private const val CLAIM_PHOTOS_BUCKET = "claim-photos"
+        private const val ITEM_PHOTOS_BUCKET    = "item-photos"
+        private const val CLAIM_PHOTOS_BUCKET   = "claim-photos"
+        private const val PROFILE_PHOTOS_BUCKET = "profile-photos"
     }
 
-    /**
-     * Upload a local file to Supabase Storage and return its public URL.
-     * Each upload uses a unique path so the CDN and Coil always fetch fresh bytes.
-     */
+    // ── Item photos ────────────────────────────────────────────────────────
+
     suspend fun uploadItemPhoto(localPath: String, itemId: String): String? {
-        val uniqueName = UUID.randomUUID().toString()
-        val remotePath = "items/$itemId/$uniqueName.jpg"
+        val remotePath = "items/$itemId/${UUID.randomUUID()}.jpg"
         return uploadPhoto(localPath, ITEM_PHOTOS_BUCKET, remotePath)
     }
 
+    suspend fun deleteOldItemPhotos(itemId: String, keepUrl: String) {
+        try {
+            val files = supabase.storage.from(ITEM_PHOTOS_BUCKET).list("items/$itemId")
+            val toDelete = files
+                .map { "items/$itemId/${it.name}" }
+                .filter { !keepUrl.endsWith(it) }
+            if (toDelete.isNotEmpty()) supabase.storage.from(ITEM_PHOTOS_BUCKET).delete(toDelete)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    // ── Claim photos ───────────────────────────────────────────────────────
+
     suspend fun uploadClaimPhoto(localPath: String, claimId: String, index: Int): String? {
-        val uniqueName = UUID.randomUUID().toString()
-        val remotePath = "claims/$claimId/$uniqueName-$index.jpg"
+        val remotePath = "claims/$claimId/${UUID.randomUUID()}-$index.jpg"
         return uploadPhoto(localPath, CLAIM_PHOTOS_BUCKET, remotePath)
     }
 
+    // ── Profile photos ─────────────────────────────────────────────────────
+
     /**
-     * Delete every uploaded photo for this item EXCEPT the one at [keepUrl].
-     * Call this after a successful upload to remove stale files from Storage.
-     * Non-fatal — if it fails the app still works, just with leftover files.
+     * Upload a profile photo for [userId].
+     * Uses a unique UUID path so the CDN and Coil always serve fresh bytes
+     * when the user changes their photo, instead of returning a cached version.
+     * The old photo is deleted automatically after a successful upload.
      */
-    suspend fun deleteOldItemPhotos(itemId: String, keepUrl: String) {
-        try {
-            val files = supabase.storage
-                .from(ITEM_PHOTOS_BUCKET)
-                .list("items/$itemId")
-
-            // Build the full remote path for each file in this item's folder
-            val toDelete = files
-                .map { "items/$itemId/${it.name}" }
-                .filter { path ->
-                    // Keep the file whose public URL ends with this path segment
-                    !keepUrl.endsWith(path)
-                }
-
-            if (toDelete.isNotEmpty()) {
-                supabase.storage.from(ITEM_PHOTOS_BUCKET).delete(toDelete)
-            }
-        } catch (e: Exception) {
-            // Non-fatal — leftover files in Storage are acceptable
-            e.printStackTrace()
-        }
+    suspend fun uploadProfilePhoto(localPath: String, userId: String): String? {
+        val remotePath = "profiles/$userId/${UUID.randomUUID()}.jpg"
+        val url = uploadPhoto(localPath, PROFILE_PHOTOS_BUCKET, remotePath) ?: return null
+        // Delete previous photos for this user (keep only the new one)
+        deleteOldProfilePhotos(userId, keepUrl = url)
+        return url
     }
 
-    private suspend fun uploadPhoto(
-        localPath: String,
-        bucket: String,
-        remotePath: String
-    ): String? {
+    private suspend fun deleteOldProfilePhotos(userId: String, keepUrl: String) {
+        try {
+            val files = supabase.storage.from(PROFILE_PHOTOS_BUCKET).list("profiles/$userId")
+            val toDelete = files
+                .map { "profiles/$userId/${it.name}" }
+                .filter { !keepUrl.endsWith(it) }
+            if (toDelete.isNotEmpty()) supabase.storage.from(PROFILE_PHOTOS_BUCKET).delete(toDelete)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    // ── Shared upload helper ───────────────────────────────────────────────
+
+    private suspend fun uploadPhoto(localPath: String, bucket: String, remotePath: String): String? {
         return try {
             val file = File(localPath)
             if (!file.exists()) return null
-            val bytes = file.readBytes()
-            supabase.storage.from(bucket).upload(remotePath, bytes, upsert = false)
+            supabase.storage.from(bucket).upload(remotePath, file.readBytes(), upsert = false)
             supabase.storage.from(bucket).publicUrl(remotePath)
         } catch (e: Exception) {
             null

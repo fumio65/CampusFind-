@@ -85,12 +85,38 @@ class SyncWorker @AssistedInject constructor(
     private suspend fun pushUsers() {
         val pending = userDao.getPendingSyncUsers()
         Log.d(TAG, "pushUsers: ${pending.size} pending")
+        // Debug: log the sync_status of ALL users to confirm PENDING_SYNC is being set
+        pending.forEach { u ->
+            Log.d(TAG, "pushUsers pending: email=${u.email} syncStatus=${u.syncStatus} photo=${u.profilePhotoUri?.takeLast(20)}")
+        }
         pending.forEach { entity ->
             try {
-                userRemote.upsert(entity.toDto())
+                Log.d(TAG, "pushUsers: entity=${entity.email} photoUri=${entity.profilePhotoUri}")
+                // Upload profile photo if it's a local file (not already a remote URL)
+                val remotePhotoUrl: String? = when {
+                    entity.profilePhotoUri == null -> {
+                        Log.d(TAG, "pushUsers: no photo"); null
+                    }
+                    photoRemote.isRemoteUrl(entity.profilePhotoUri) -> {
+                        Log.d(TAG, "pushUsers: already remote url"); entity.profilePhotoUri
+                    }
+                    else -> {
+                        Log.d(TAG, "pushUsers: uploading local photo ${entity.profilePhotoUri}")
+                        val url = photoRemote.uploadProfilePhoto(entity.profilePhotoUri, entity.id)
+                        Log.d(TAG, "pushUsers: upload result=$url")
+                        url
+                    }
+                }
+                // Write remote URL back to Room if photo was just uploaded
+                if (remotePhotoUrl != null && remotePhotoUrl != entity.profilePhotoUri) {
+                    userDao.updateProfilePhoto(entity.id, remotePhotoUrl)
+                    Log.d(TAG, "pushUsers: wrote remote url back to Room")
+                }
+                userRemote.upsert(entity.toDto().copy(profilePhotoUri = remotePhotoUrl))
                 userDao.updateSyncStatus(entity.id, SyncStatus.SYNCED.name)
+                Log.d(TAG, "pushUsers: synced '${entity.email}'")
             } catch (e: Exception) {
-                Log.e(TAG, "pushUsers FAILED ${entity.email}: ${e.message}")
+                Log.e(TAG, "pushUsers FAILED ${entity.email}: ${e.message}", e)
                 userDao.updateSyncStatus(entity.id, SyncStatus.SYNC_FAILED.name)
             }
         }
@@ -184,9 +210,17 @@ class SyncWorker @AssistedInject constructor(
         users.forEach { dto ->
             userDao.insertFromRemoteIfAbsent(
                 dto.id, dto.fullName, dto.email,
-                dto.passwordHash, dto.messengerHandle, dto.createdAt
+                dto.passwordHash, dto.messengerHandle, dto.createdAt,
+                dto.profilePhotoUri
             )
+            // Update name/messenger — only for rows that are already SYNCED.
+            // PENDING_SYNC rows have local edits that haven't been pushed yet.
             userDao.updateNonSensitiveFromRemote(dto.id, dto.fullName, dto.messengerHandle)
+            // Only update photo if remote actually has a URL — never overwrite
+            // a local pending photo path with null from Supabase.
+            if (!dto.profilePhotoUri.isNullOrBlank()) {
+                userDao.updateRemotePhotoUri(dto.id, dto.profilePhotoUri)
+            }
         }
 
         items.forEach { dto ->
@@ -230,7 +264,8 @@ class SyncWorker @AssistedInject constructor(
 
     private fun UserEntity.toDto() = UserDto(
         id = id, fullName = fullName, email = email,
-        messengerHandle = messengerHandle, createdAt = createdAt, passwordHash = passwordHash
+        messengerHandle = messengerHandle, createdAt = createdAt, passwordHash = passwordHash,
+        profilePhotoUri = profilePhotoUri
     )
 
     private fun LostItemEntity.toDto() = LostItemDto(

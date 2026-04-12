@@ -2,19 +2,9 @@ package com.campusfind.domain.repository
 
 import com.campusfind.domain.model.User
 
-/**
- * UserRepository - COMPLETE WITH ALL METHODS
- *
- * Interface for user-related operations
- */
 interface UserRepository {
-    // ══════════════════════════════════════
-    // AUTH METHODS
-    // ══════════════════════════════════════
 
-    /**
-     * Register a new user
-     */
+    // Auth
     suspend fun register(
         fullName: String,
         email: String,
@@ -22,32 +12,20 @@ interface UserRepository {
         messengerHandle: String?
     ): Result<User>
 
-    /**
-     * Login with email and password
-     */
-    suspend fun login(
-        email: String,
-        password: String
-    ): Result<User>
+    suspend fun login(email: String, password: String): Result<User>
 
-    // ══════════════════════════════════════
-    // USER QUERY METHODS
-    // ══════════════════════════════════════
-
-    /**
-     * Get user by ID (for profile screen, reporter name, etc.)
-     */
+    // Query
     suspend fun getUserById(id: String): User?
 
-    // ══════════════════════════════════════
-    // USER UPDATE METHODS
-    // ══════════════════════════════════════
+    // Flow observer — emits on every Room write so UI updates instantly
+    fun observeUser(id: String): kotlinx.coroutines.flow.Flow<User?>
 
-    /**
-     * Update user's Messenger handle (Add/Edit from UserProfileScreen)
-     */
-    suspend fun updateMessengerHandle(
-        userId: String,
-        messengerHandle: String
-    ): Result<Unit>
+    // Updates
+    suspend fun updateMessengerHandle(userId: String, messengerHandle: String): Result<Unit>
+
+    // NEW: update name + email, syncs to cloud
+    suspend fun updateProfile(userId: String, fullName: String, email: String): Result<Unit>
+
+    // NEW: update profile photo, syncs to cloud
+    suspend fun updateProfilePhoto(userId: String, photoUri: String): Result<Unit>
 }
