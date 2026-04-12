@@ -26,6 +26,15 @@ interface TipDao {
 
     @Query("DELETE FROM tips WHERE item_id = :itemId")
     suspend fun deleteTipsByItem(itemId: String)
+
+    @Query("SELECT * FROM tips WHERE sync_status = 'PENDING_SYNC'")
+    suspend fun getPendingSyncTips(): List<TipEntity>
+
+    @Query("UPDATE tips SET sync_status = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(tips: List<TipEntity>)
 }
 
 data class TipWithAuthor(

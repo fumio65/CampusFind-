@@ -59,6 +59,15 @@ interface ClaimDao {
      */
     @Query("SELECT * FROM claims WHERE id = :claimId")
     suspend fun getClaimById(claimId: String): ClaimEntity?
+
+    @Query("SELECT * FROM claims WHERE sync_status = 'PENDING_SYNC'")
+    suspend fun getPendingSyncClaims(): List<ClaimEntity>
+
+    @Query("UPDATE claims SET sync_status = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(claims: List<ClaimEntity>)
 }
 
 /**

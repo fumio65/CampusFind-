@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.campusfind.domain.model.SyncStatus
 import java.util.UUID
 
 /**
@@ -74,5 +75,8 @@ data class ClaimEntity(
     val claimedAt: Long,  // When the claim was submitted
 
     @ColumnInfo(name = "reviewed_at")
-    val reviewedAt: Long? = null  // When owner approved/rejected (null = pending)
+    val reviewedAt: Long? = null,  // When owner approved/rejected (null = pending)
+
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: String = SyncStatus.PENDING_SYNC.name
 )

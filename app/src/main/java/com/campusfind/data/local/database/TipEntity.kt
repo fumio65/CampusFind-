@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.campusfind.domain.model.SyncStatus
 
 @Entity(
     tableName = "tips",
@@ -51,5 +52,8 @@ data class TipEntity(
     val createdAt: Long,
 
     @ColumnInfo(name = "parent_tip_id")
-    val parentTipId: String? = null  // NEW: null = top-level tip, non-null = reply
+    val parentTipId: String? = null,  // null = top-level tip, non-null = reply
+
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: String = SyncStatus.PENDING_SYNC.name
 )

@@ -4,10 +4,11 @@ data class LostItem(
     val id: String,
     val title: String,
     val description: String,
-    val location: String? = null,  // ✅ NEW: Location field
+    val location: String? = null,
     val status: ItemStatus,
     val reportedBy: String,
     val reportedAt: Long,
     val lastModifiedAt: Long,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val syncStatus: SyncStatus = SyncStatus.SYNCED  // ← added
 )

@@ -89,7 +89,6 @@ fun EditItemScreen(
                                 )
                             )
                     ) {
-                        // Ambient orbs
                         Box(modifier = Modifier.size(130.dp).offset(x = 230.dp, y = (-20).dp)
                             .background(ModernAccent.copy(0.18f), CircleShape).blur(40.dp))
                         Box(modifier = Modifier.size(90.dp).offset(x = (-10).dp, y = 90.dp)
@@ -98,31 +97,17 @@ fun EditItemScreen(
                         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                             Spacer(Modifier.height(8.dp))
-
-                            // Back / Cancel button
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp)
-                            ) {
-                                HeroBackButton(
-                                    onClick = onNavigateBack,
-                                    modifier = Modifier.align(Alignment.CenterStart)
-                                )
+                            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                                HeroBackButton(onClick = onNavigateBack,
+                                    modifier = Modifier.align(Alignment.CenterStart))
                             }
-
                             Spacer(Modifier.height(16.dp))
-
-                            // Title
                             Column(modifier = Modifier.padding(horizontal = 18.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text("✏️", fontSize = 22.sp)
-                                    Text("Edit Report",
-                                        fontSize = 24.sp, fontWeight = FontWeight.Black,
-                                        color = Color.White)
+                                    Text("Edit Report", fontSize = 24.sp,
+                                        fontWeight = FontWeight.Black, color = Color.White)
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text("Update your lost item details",
@@ -141,64 +126,46 @@ fun EditItemScreen(
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Error banner
                         if (uiState.error != null && uiState.isItemLoaded) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
+                            Surface(modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 color = ModernError.copy(0.10f),
-                                border = BorderStroke(1.dp, ModernError.copy(0.3f))
-                            ) {
+                                border = BorderStroke(1.dp, ModernError.copy(0.3f))) {
                                 Text(uiState.error ?: "", color = ModernError,
                                     fontSize = 12.sp, modifier = Modifier.padding(12.dp))
                             }
                         }
 
-                        // Item Title
                         FormField(label = "ITEM TITLE") {
-                            FormInput(
-                                value    = uiState.title,
+                            FormInput(value = uiState.title,
                                 onChange = { viewModel.onTitleChanged(it) },
-                                icon     = "📦",
-                                hint     = "e.g., Black Wallet",
-                                colors   = colors
-                            )
+                                icon = "📦", hint = "e.g., Black Wallet", colors = colors)
                         }
 
-                        // Description
                         FormField(label = "DESCRIPTION") {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape    = RoundedCornerShape(14.dp),
-                                color    = colors.cardBg,
-                                border   = BorderStroke(1.dp, colors.cardBorder)
-                            ) {
+                            Surface(modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                color = colors.cardBg,
+                                border = BorderStroke(1.dp, colors.cardBorder)) {
                                 BasicTextField(
                                     value = uiState.description,
                                     onValueChange = { viewModel.onDescriptionChanged(it) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp)
-                                        .height(100.dp),
-                                    textStyle = TextStyle(
-                                        fontSize = 13.sp, lineHeight = 20.sp,
-                                        color = colors.textPrimary
-                                    ),
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp).height(100.dp),
+                                    textStyle = TextStyle(fontSize = 13.sp, lineHeight = 20.sp,
+                                        color = colors.textPrimary),
                                     cursorBrush = SolidColor(ModernAccent),
                                     decorationBox = { inner ->
                                         if (uiState.description.isEmpty()) {
                                             Text("Describe the item, where it was lost, and when...",
-                                                fontSize = 13.sp, color = colors.textMuted,
-                                                lineHeight = 20.sp)
+                                                fontSize = 13.sp, color = colors.textMuted, lineHeight = 20.sp)
                                         }
                                         inner()
                                     }
                                 )
                             }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                            Row(modifier = Modifier.fillMaxWidth()
+                                .padding(top = 4.dp, start = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Be specific to help others identify it",
                                     fontSize = 9.sp, color = colors.textMuted)
                                 Text("${uiState.description.length} / 500",
@@ -206,53 +173,50 @@ fun EditItemScreen(
                             }
                         }
 
-                        // Location
-                        FormField(
-                            label    = "LAST SEEN LOCATION",
-                            optional = true
-                        ) {
-                            FormInput(
-                                value    = uiState.location,
+                        FormField(label = "LAST SEEN LOCATION", optional = true) {
+                            FormInput(value = uiState.location,
                                 onChange = { viewModel.onLocationChanged(it) },
-                                icon     = "📍",
-                                hint     = "e.g., Library entrance",
-                                colors   = colors
-                            )
+                                icon = "📍", hint = "e.g., Library entrance", colors = colors)
                         }
 
-                        // Photo
+                        // ── Photo section ──────────────────────────────────
                         FormField(label = "PHOTO", optional = true) {
-                            val hasPhoto = uiState.selectedPhotoUri != null ||
-                                    (!uiState.currentPhotoUri.isNullOrBlank())
+
+                            // FIX: Determine what to show in the image preview.
+                            //
+                            // Priority order:
+                            //   1. Newly selected Uri from the picker (user just picked a new photo)
+                            //   2. currentPhotoUri from Room — which may be EITHER:
+                            //      a. A local file path  (pre-sync, or offline)
+                            //      b. A https:// URL     (after SyncWorker wrote the public URL back)
+                            //
+                            // The old code used File(currentPath).exists() which always returns
+                            // false for https:// URLs, making the photo appear missing and causing
+                            // the user to think there is no photo when they open the edit screen.
+                            //
+                            val currentPath = uiState.currentPhotoUri
+
+                            // Resolve the model Coil should load.
+                            // selectedPhotoUri (Uri) takes priority over currentPhotoUri (String).
+                            val imageModel: Any? = when {
+                                uiState.selectedPhotoUri != null -> uiState.selectedPhotoUri
+                                currentPath.isNullOrBlank()      -> null
+                                currentPath.startsWith("https://") -> currentPath        // remote URL
+                                else -> File(currentPath).takeIf { it.exists() }         // local file
+                            }
+
+                            val hasPhoto = imageModel != null
 
                             if (hasPhoto) {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().height(200.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                ) {
-                                    // New selected photo (Uri) takes priority
-                                    if (uiState.selectedPhotoUri != null) {
-                                        Image(
-                                            painter = rememberAsyncImagePainter(uiState.selectedPhotoUri),
-                                            contentDescription = "Selected photo",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        // Current photo from DB (file path String)
-                                        val currentPath = uiState.currentPhotoUri
-                                        if (!currentPath.isNullOrBlank()) {
-                                            val photoFile = remember(currentPath) { File(currentPath) }
-                                            if (photoFile.exists()) {
-                                                Image(
-                                                    painter = rememberAsyncImagePainter(photoFile),
-                                                    contentDescription = "Current photo",
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = ContentScale.Crop
-                                                )
-                                            }
-                                        }
-                                    }
+                                Box(modifier = Modifier.fillMaxWidth().height(200.dp)
+                                    .clip(RoundedCornerShape(14.dp))) {
+
+                                    Image(
+                                        painter = rememberAsyncImagePainter(imageModel),
+                                        contentDescription = "Item photo",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
 
                                     // Dark scrim at bottom
                                     Box(modifier = Modifier.fillMaxWidth().height(60.dp)
@@ -260,30 +224,28 @@ fun EditItemScreen(
                                         .background(Brush.verticalGradient(
                                             listOf(Color.Transparent, Color.Black.copy(0.5f)))))
 
-                                    // Remove button — top right
+                                    // Remove button
                                     Surface(
                                         onClick = { viewModel.onRemovePhoto() },
                                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                                         shape = CircleShape,
                                         color = Color.Black.copy(0.55f)
                                     ) {
-                                        Icon(Icons.Default.Close, "Remove",
+                                        Icon(Icons.Default.Close, "Remove photo",
                                             tint = Color.White,
                                             modifier = Modifier.padding(6.dp).size(14.dp))
                                     }
 
-                                    // Change photo — bottom center
+                                    // Change photo button
                                     Surface(
                                         onClick = { photoPickerLauncher.launch("image/*") },
                                         modifier = Modifier.align(Alignment.BottomCenter).padding(10.dp),
                                         shape = RoundedCornerShape(20.dp),
                                         color = Color.White.copy(0.90f)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                                        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
+                                            verticalAlignment = Alignment.CenterVertically) {
                                             Text("📷", fontSize = 12.sp)
                                             Text("Change Photo", fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold, color = ModernAccent)
@@ -292,38 +254,30 @@ fun EditItemScreen(
                                 }
                             } else {
                                 // Upload zone
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(colors.cardBg)
-                                        .drawBehind {
-                                            val stroke = Stroke(
-                                                width = 1.5.dp.toPx(),
-                                                pathEffect = PathEffect.dashPathEffect(
-                                                    floatArrayOf(10f, 10f), 0f
-                                                )
-                                            )
-                                            drawRoundRect(
-                                                color = if (colors.isDark)
-                                                    ModernAccent.copy(0.3f) else Color(0xFFD0D0CC),
-                                                style = stroke,
-                                                cornerRadius = CornerRadius(14.dp.toPx())
-                                            )
-                                        }
-                                        .clickable { photoPickerLauncher.launch("image/*") }
-                                        .padding(28.dp)
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(colors.cardBg)
+                                    .drawBehind {
+                                        val stroke = Stroke(width = 1.5.dp.toPx(),
+                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f))
+                                        drawRoundRect(
+                                            color = if (colors.isDark) ModernAccent.copy(0.3f)
+                                            else Color(0xFFD0D0CC),
+                                            style = stroke,
+                                            cornerRadius = CornerRadius(14.dp.toPx()))
+                                    }
+                                    .clickable { photoPickerLauncher.launch("image/*") }
+                                    .padding(28.dp)
                                 ) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
+                                    Column(modifier = Modifier.fillMaxWidth(),
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.size(52.dp).clip(CircleShape)
-                                                .background(ModernAccent.copy(0.12f)),
-                                            contentAlignment = Alignment.Center
-                                        ) { Text("📷", fontSize = 24.sp) }
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Box(modifier = Modifier.size(52.dp).clip(CircleShape)
+                                            .background(ModernAccent.copy(0.12f)),
+                                            contentAlignment = Alignment.Center) {
+                                            Text("📷", fontSize = 24.sp)
+                                        }
                                         Text("Tap to add photo", fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold, color = ModernAccent)
                                         Text("Helps others recognize the item",
@@ -337,40 +291,31 @@ fun EditItemScreen(
                     }
 
                     // ── Sticky save button ─────────────────────────────────
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color    = colors.cardBg,
-                        shadowElevation = 8.dp
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
-                                .height(50.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    if (!uiState.isSaving)
-                                        Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))
-                                    else
-                                        Brush.linearGradient(listOf(
-                                            colors.textMuted.copy(0.3f), colors.textMuted.copy(0.3f)
-                                        ))
-                                )
-                                .clickable(enabled = !uiState.isSaving) {
-                                    viewModel.onSave(onSuccess = onNavigateBack)
-                                },
+                    Surface(modifier = Modifier.fillMaxWidth(),
+                        color = colors.cardBg, shadowElevation = 8.dp) {
+                        Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (!uiState.isSaving)
+                                    Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))
+                                else
+                                    Brush.linearGradient(listOf(
+                                        colors.textMuted.copy(0.3f), colors.textMuted.copy(0.3f)))
+                            )
+                            .clickable(enabled = !uiState.isSaving) {
+                                viewModel.onSave(onSuccess = onNavigateBack)
+                            },
                             contentAlignment = Alignment.Center
                         ) {
                             if (uiState.isSaving) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    color = Color.White, strokeWidth = 2.dp
-                                )
+                                CircularProgressIndicator(modifier = Modifier.size(22.dp),
+                                    color = Color.White, strokeWidth = 2.dp)
                             } else {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
                                     Text("💾", fontSize = 14.sp)
                                     Text("Save Changes", fontSize = 14.sp,
                                         fontWeight = FontWeight.ExtraBold, color = Color.White)
@@ -393,10 +338,8 @@ private fun FormField(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                 color = LocalAppColors.current.textMuted, letterSpacing = 0.6.sp)
             if (optional) {
@@ -419,26 +362,20 @@ private fun FormInput(
     hint: String,
     colors: AppColors
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(14.dp),
-        color    = colors.cardBg,
-        border   = BorderStroke(1.dp, colors.cardBorder)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        color = colors.cardBg, border = BorderStroke(1.dp, colors.cardBorder)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(icon, fontSize = 16.sp)
-            BasicTextField(
-                value = value,
-                onValueChange = onChange,
+            BasicTextField(value = value, onValueChange = onChange,
                 modifier = Modifier.weight(1f),
-                textStyle = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = colors.textPrimary),
+                textStyle = TextStyle(fontSize = 13.sp, lineHeight = 18.sp,
+                    color = colors.textPrimary),
                 cursorBrush = SolidColor(ModernAccent),
                 decorationBox = { inner ->
-                    if (value.isEmpty()) Text(hint, fontSize = 13.sp, lineHeight = 18.sp, color = colors.textMuted)
+                    if (value.isEmpty()) Text(hint, fontSize = 13.sp,
+                        lineHeight = 18.sp, color = colors.textMuted)
                     inner()
                 }
             )

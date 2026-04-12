@@ -8,9 +8,11 @@ import com.campusfind.data.local.database.ClaimReplyDao
 import com.campusfind.data.local.database.ClaimReplyEntity
 import com.campusfind.data.local.database.ClaimReplyWithUserEntity
 import com.campusfind.data.local.database.ClaimWithUserEntity
+import com.campusfind.data.sync.SyncManager
 import com.campusfind.domain.model.Claim
 import com.campusfind.domain.model.ClaimReply
 import com.campusfind.domain.model.ClaimStatus
+import com.campusfind.domain.model.SyncStatus
 import com.campusfind.domain.repository.ClaimRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +26,8 @@ import javax.inject.Inject
 class ClaimRepositoryImpl @Inject constructor(
     private val claimDao: ClaimDao,
     private val claimReplyDao: ClaimReplyDao,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val syncManager: SyncManager
 ) : ClaimRepository {
 
     companion object {
@@ -76,12 +79,14 @@ class ClaimRepositoryImpl @Inject constructor(
                 itemId    = itemId,
                 claimedBy = finderId,
                 message   = message,
-                photoUri  = photoUriValue,   // e.g. "/files/c1.jpg|/files/c2.jpg|/files/c3.jpg"
+                photoUri  = photoUriValue,
                 status    = "PENDING",
-                claimedAt = System.currentTimeMillis()
+                claimedAt = System.currentTimeMillis(),
+                syncStatus = SyncStatus.PENDING_SYNC.name
             )
 
             claimDao.insertClaim(claim)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -97,6 +102,8 @@ class ClaimRepositoryImpl @Inject constructor(
     override suspend fun updateClaimStatus(claimId: String, status: ClaimStatus): Result<Unit> {
         return try {
             claimDao.updateClaimStatus(claimId, status.name)
+            claimDao.updateSyncStatus(claimId, SyncStatus.PENDING_SYNC.name)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -131,9 +138,11 @@ class ClaimRepositoryImpl @Inject constructor(
                 claimId  = claimId,
                 authorId = authorId,
                 message  = message.trim(),
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                syncStatus = SyncStatus.PENDING_SYNC.name
             )
             claimReplyDao.insertReply(reply)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

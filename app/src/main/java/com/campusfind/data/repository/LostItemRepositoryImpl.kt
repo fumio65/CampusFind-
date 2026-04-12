@@ -1,10 +1,14 @@
 package com.campusfind.data.repository
 
+import android.net.Uri
 import com.campusfind.data.local.database.LostItemDao
 import com.campusfind.data.local.database.LostItemEntity
 import com.campusfind.data.local.preferences.SessionManager
+import com.campusfind.data.local.photo.PhotoManager
+import com.campusfind.data.sync.SyncManager
 import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
+import com.campusfind.domain.model.SyncStatus
 import com.campusfind.domain.repository.LostItemRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -13,7 +17,9 @@ import javax.inject.Inject
 
 class LostItemRepositoryImpl @Inject constructor(
     private val dao: LostItemDao,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val syncManager: SyncManager,
+    private val photoManager: PhotoManager
 ) : LostItemRepository {
 
     override fun getAllItems(): Flow<List<LostItem>> =
@@ -22,13 +28,15 @@ class LostItemRepositoryImpl @Inject constructor(
     override fun getItemsByStatus(status: ItemStatus): Flow<List<LostItem>> =
         dao.getItemsByStatus(status.name).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getItemById(id: String): LostItem? =
-        dao.getItemById(id)?.toDomain()
-
     override fun getItemsByUser(userId: String): Flow<List<LostItem>> =
         dao.getItemsByUser(userId).map { list -> list.map { it.toDomain() } }
 
-    // ✅ UPDATED: Now accepts location parameter
+    override fun observeItemById(id: String): Flow<LostItem?> =
+        dao.observeItemById(id).map { it?.toDomain() }
+
+    override suspend fun getItemById(id: String): LostItem? =
+        dao.getItemById(id)?.toDomain()
+
     override suspend fun addItem(
         title: String,
         description: String,
@@ -39,35 +47,55 @@ class LostItemRepositoryImpl @Inject constructor(
             val currentUserId = sessionManager.currentUserId
                 ?: return Result.failure(Exception("Not logged in"))
 
+            val stablePhotoUri = if (photoUri?.startsWith("content://") == true) {
+                photoManager.savePhoto(Uri.parse(photoUri))
+            } else {
+                photoUri
+            }
+
             val entity = LostItemEntity(
-                id = UUID.randomUUID().toString(),
-                title = title,
-                description = description,
-                location = location,  // ✅ NEW
-                status = "LOST",
-                reportedBy = currentUserId,
-                reportedAt = System.currentTimeMillis(),
+                id             = UUID.randomUUID().toString(),
+                title          = title,
+                description    = description,
+                location       = location,
+                status         = "LOST",
+                reportedBy     = currentUserId,
+                reportedAt     = System.currentTimeMillis(),
                 lastModifiedAt = System.currentTimeMillis(),
-                photoUri = photoUri
+                photoUri       = stablePhotoUri,
+                syncStatus     = SyncStatus.PENDING_SYNC.name
             )
             dao.insertItem(entity)
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // ✅ UPDATED: Now accepts location parameter
     override suspend fun updateItemDetails(
         id: String,
         title: String,
         description: String,
-        location: String?
+        location: String?,
+        photoUri: String?,
+        photoChanged: Boolean
     ): Result<Unit> {
         return try {
-            val timestamp = System.currentTimeMillis()
-            // Note: You'll need to add this method to LostItemDao
-            dao.updateItemDetailsWithLocation(id, title, description, location, timestamp)
+            val finalPhotoUri: String? = when {
+                photoChanged && photoUri != null -> photoUri
+                photoChanged && photoUri == null -> null
+                else -> photoUri
+            }
+            dao.updateItemFull(
+                id          = id,
+                title       = title,
+                description = description,
+                location    = location,
+                timestamp   = System.currentTimeMillis(),
+                photoUri    = finalPhotoUri
+            )
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -76,8 +104,8 @@ class LostItemRepositoryImpl @Inject constructor(
 
     override suspend fun updateItemStatus(id: String, status: ItemStatus): Result<Unit> {
         return try {
-            val timestamp = System.currentTimeMillis()
-            dao.updateItemStatus(id, status.name, timestamp)
+            dao.updateItemStatus(id, status.name, System.currentTimeMillis())
+            syncManager.triggerNow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -93,16 +121,17 @@ class LostItemRepositoryImpl @Inject constructor(
         }
     }
 
-    // ✅ UPDATED: Mapping includes location
+    // FIX: now maps syncStatus from entity to domain model
     private fun LostItemEntity.toDomain() = LostItem(
-        id = id,
-        title = title,
-        description = description,
-        location = location,  // ✅ NEW
-        status = ItemStatus.valueOf(status),
-        reportedBy = reportedBy,
-        reportedAt = reportedAt,
+        id             = id,
+        title          = title,
+        description    = description,
+        location       = location,
+        status         = ItemStatus.valueOf(status),
+        reportedBy     = reportedBy,
+        reportedAt     = reportedAt,
         lastModifiedAt = lastModifiedAt,
-        photoUri = photoUri
+        photoUri       = photoUri,
+        syncStatus     = try { SyncStatus.valueOf(syncStatus) } catch (e: Exception) { SyncStatus.SYNCED }
     )
 }

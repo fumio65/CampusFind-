@@ -29,6 +29,15 @@ interface ClaimReplyDao {
 
     @Query("DELETE FROM claim_replies WHERE claim_id = :claimId")
     suspend fun deleteRepliesByClaimId(claimId: String)
+
+    @Query("SELECT * FROM claim_replies WHERE sync_status = 'PENDING_SYNC'")
+    suspend fun getPendingSyncReplies(): List<ClaimReplyEntity>
+
+    @Query("UPDATE claim_replies SET sync_status = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(replies: List<ClaimReplyEntity>)
 }
 
 data class ClaimReplyWithUserEntity(
