@@ -9,7 +9,7 @@ class UserRemoteDataSource @Inject constructor(
     private val supabase: SupabaseClient
 ) {
     suspend fun upsert(dto: UserDto) {
-        supabase.from("users").upsert(dto)
+        supabase. from("users").upsert(dto)
     }
 
     suspend fun fetchAll(): List<UserDto> {
