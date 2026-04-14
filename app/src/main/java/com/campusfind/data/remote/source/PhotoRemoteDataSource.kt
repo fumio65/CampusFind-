@@ -1,5 +1,6 @@
 package com.campusfind.data.remote.source
 
+import android.util.Log
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.storage.storage
 import java.io.File
@@ -13,6 +14,7 @@ class PhotoRemoteDataSource @Inject constructor(
         private const val ITEM_PHOTOS_BUCKET    = "item-photos"
         private const val CLAIM_PHOTOS_BUCKET   = "claim-photos"
         private const val PROFILE_PHOTOS_BUCKET = "profile-photos"
+        private const val TAG = "SYNC_DEBUG"
     }
 
     // ── Item photos ────────────────────────────────────────────────────────
@@ -24,11 +26,11 @@ class PhotoRemoteDataSource @Inject constructor(
 
     suspend fun deleteOldItemPhotos(itemId: String, keepUrl: String) {
         try {
-            val files = supabase.storage.from(ITEM_PHOTOS_BUCKET).list("items/$itemId")
+            val files = supabase.storage[ITEM_PHOTOS_BUCKET].list("items/$itemId")
             val toDelete = files
                 .map { "items/$itemId/${it.name}" }
                 .filter { !keepUrl.endsWith(it) }
-            if (toDelete.isNotEmpty()) supabase.storage.from(ITEM_PHOTOS_BUCKET).delete(toDelete)
+            if (toDelete.isNotEmpty()) supabase.storage[ITEM_PHOTOS_BUCKET].delete(toDelete)
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -41,27 +43,35 @@ class PhotoRemoteDataSource @Inject constructor(
 
     // ── Profile photos ─────────────────────────────────────────────────────
 
-    /**
-     * Upload a profile photo for [userId].
-     * Uses a unique UUID path so the CDN and Coil always serve fresh bytes
-     * when the user changes their photo, instead of returning a cached version.
-     * The old photo is deleted automatically after a successful upload.
-     */
     suspend fun uploadProfilePhoto(localPath: String, userId: String): String? {
-        val remotePath = "profiles/$userId/${UUID.randomUUID()}.jpg"
-        val url = uploadPhoto(localPath, PROFILE_PHOTOS_BUCKET, remotePath) ?: return null
-        // Delete previous photos for this user (keep only the new one)
-        deleteOldProfilePhotos(userId, keepUrl = url)
-        return url
+        return try {
+            val file = File(localPath)
+            Log.d(TAG, "uploadProfilePhoto: path=$localPath exists=${file.exists()} size=${file.length()}")
+            if (!file.exists()) {
+                Log.e(TAG, "uploadProfilePhoto: file does not exist!")
+                return null
+            }
+            val remotePath = "profiles/$userId/${UUID.randomUUID()}.jpg"
+            val bytes = file.readBytes()
+            Log.d(TAG, "uploadProfilePhoto: uploading ${bytes.size} bytes to bucket=$PROFILE_PHOTOS_BUCKET path=$remotePath")
+            supabase.storage[PROFILE_PHOTOS_BUCKET].upload(remotePath, bytes, upsert = true)
+            val url = supabase.storage[PROFILE_PHOTOS_BUCKET].publicUrl(remotePath)
+            Log.d(TAG, "uploadProfilePhoto: SUCCESS url=$url")
+            deleteOldProfilePhotos(userId, keepUrl = url)
+            url
+        } catch (e: Exception) {
+            Log.e(TAG, "uploadProfilePhoto EXCEPTION: ${e::class.simpleName}: ${e.message}", e)
+            null
+        }
     }
 
     private suspend fun deleteOldProfilePhotos(userId: String, keepUrl: String) {
         try {
-            val files = supabase.storage.from(PROFILE_PHOTOS_BUCKET).list("profiles/$userId")
+            val files = supabase.storage[PROFILE_PHOTOS_BUCKET].list("profiles/$userId")
             val toDelete = files
                 .map { "profiles/$userId/${it.name}" }
                 .filter { !keepUrl.endsWith(it) }
-            if (toDelete.isNotEmpty()) supabase.storage.from(PROFILE_PHOTOS_BUCKET).delete(toDelete)
+            if (toDelete.isNotEmpty()) supabase.storage[PROFILE_PHOTOS_BUCKET].delete(toDelete)
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -71,9 +81,10 @@ class PhotoRemoteDataSource @Inject constructor(
         return try {
             val file = File(localPath)
             if (!file.exists()) return null
-            supabase.storage.from(bucket).upload(remotePath, file.readBytes(), upsert = false)
-            supabase.storage.from(bucket).publicUrl(remotePath)
+            supabase.storage[bucket].upload(remotePath, file.readBytes(), upsert = false)
+            supabase.storage[bucket].publicUrl(remotePath)
         } catch (e: Exception) {
+            Log.e(TAG, "uploadPhoto FAILED bucket=$bucket path=$remotePath: ${e.message}")
             null
         }
     }

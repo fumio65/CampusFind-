@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
@@ -42,7 +43,6 @@ import com.campusfind.domain.model.ItemStatus
 import com.campusfind.domain.model.LostItem
 import com.campusfind.ui.theme.*
 import com.campusfind.ui.util.buildImageRequest
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -180,7 +180,6 @@ fun UserProfileScreen(
             }
         }
 
-        // Pull-to-refresh indicator
         PullToRefreshContainer(
             state          = pullRefreshState,
             modifier       = Modifier.align(Alignment.TopCenter),
@@ -188,11 +187,9 @@ fun UserProfileScreen(
             contentColor   = ModernAccent
         )
 
-        // Save success toast
         if (uiState.saveSuccess) {
             Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) {
-                Surface(shape = RoundedCornerShape(24.dp), color = ModernFound,
-                    shadowElevation = 8.dp) {
+                Surface(shape = RoundedCornerShape(24.dp), color = ModernFound, shadowElevation = 8.dp) {
                     Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -207,7 +204,7 @@ fun UserProfileScreen(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// HERO — profile photo + edit button
+// HERO
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -217,20 +214,16 @@ private fun ProfileHero(
     onPhotoChanged: (String) -> Unit,
     onEditProfile: (name: String, email: String) -> Unit
 ) {
-    var showEditDialog   by remember { mutableStateOf(false) }
-    var previewUri       by remember { mutableStateOf<android.net.Uri?>(null) }
-    val context          = LocalContext.current
+    var showEditDialog  by remember { mutableStateOf(false) }
+    var showPhotoViewer by remember { mutableStateOf(false) }  // ← view current photo
+    var previewUri      by remember { mutableStateOf<android.net.Uri?>(null) }
+    val context         = LocalContext.current
 
-    // After picking, show preview dialog instead of saving immediately
     val photoLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { previewUri = it }
-    }
+    ) { uri -> uri?.let { previewUri = it } }
 
-    // Photo preview + confirm dialog
-    // Pass the raw content URI string to the ViewModel — PhotoManager.savePhoto()
-    // handles copying it to permanent internal storage on IO dispatcher.
+    // Preview dialog — shown after picking a new photo
     if (previewUri != null) {
         PhotoPreviewConfirmDialog(
             uri       = previewUri!!,
@@ -242,13 +235,25 @@ private fun ProfileHero(
         )
     }
 
+    // Full-screen viewer — shown when user taps their existing profile photo
+    if (showPhotoViewer && uiState.profilePhotoUri != null) {
+        CurrentPhotoViewerDialog(
+            photoUri  = uiState.profilePhotoUri,
+            context   = context,
+            onDismiss = { showPhotoViewer = false },
+            onChange  = {
+                showPhotoViewer = false
+                photoLauncher.launch("image/*")
+            }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxWidth()
         .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
         .background(Brush.linearGradient(
             colors = listOf(Color(0xFF12101E), Color(0xFF1E1340), Color(0xFF0E1F18))))
         .padding(bottom = 20.dp)) {
 
-        // Ambient orbs
         Box(modifier = Modifier.size(160.dp).offset(x = 220.dp, y = (-40).dp)
             .background(ModernAccent.copy(alpha = 0.15f), CircleShape))
         Box(modifier = Modifier.size(100.dp).offset(x = (-20).dp, y = 140.dp)
@@ -258,55 +263,69 @@ private fun ProfileHero(
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(8.dp))
 
-            // Top bar — settings button
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
                 Surface(onClick = onNavigateToSettings,
                     modifier = Modifier.size(36.dp).align(Alignment.CenterEnd),
                     shape = CircleShape, color = Color.White.copy(alpha = 0.10f),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))) {
-                    Box(contentAlignment = Alignment.Center) { Text("⚙", fontSize = 15.sp, color = Color.White) }
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("⚙", fontSize = 15.sp, color = Color.White)
+                    }
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // Avatar + edit button
             Column(modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-                // Profile photo with camera overlay
+                // Avatar — tappable to VIEW current photo, camera button to CHANGE
                 Box(contentAlignment = Alignment.BottomEnd) {
-                    // Avatar circle — shows photo if available, letter otherwise
-                    Box(modifier = Modifier.size(88.dp).clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5)))),
-                        contentAlignment = Alignment.Center) {
-
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5))))
+                            .clickable {
+                                if (uiState.profilePhotoUri != null) {
+                                    showPhotoViewer = true  // view existing photo
+                                } else {
+                                    photoLauncher.launch("image/*")  // no photo yet → open picker
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
                         val photoRequest = buildImageRequest(context, uiState.profilePhotoUri)
                         if (photoRequest != null) {
-                            Image(painter = rememberAsyncImagePainter(photoRequest),
+                            Image(
+                                painter            = rememberAsyncImagePainter(photoRequest),
                                 contentDescription = "Profile photo",
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                contentScale = ContentScale.Crop)
+                                modifier           = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale       = ContentScale.Crop
+                            )
                         } else {
-                            Text(uiState.userName?.firstOrNull()?.uppercase() ?: "U",
-                                fontSize = 36.sp, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(
+                                uiState.userName?.firstOrNull()?.uppercase() ?: "U",
+                                fontSize = 36.sp, fontWeight = FontWeight.Black, color = Color.White
+                            )
                         }
                     }
 
-                    // Camera button overlay
-                    Surface(onClick = { photoLauncher.launch("image/*") },
-                        modifier = Modifier.size(28.dp),
-                        shape = CircleShape,
-                        color = ModernAccent,
-                        shadowElevation = 4.dp) {
+                    // Camera button — always opens picker to change photo
+                    Surface(
+                        onClick        = { photoLauncher.launch("image/*") },
+                        modifier       = Modifier.size(28.dp),
+                        shape          = CircleShape,
+                        color          = ModernAccent,
+                        shadowElevation = 4.dp
+                    ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text("📷", fontSize = 12.sp)
                         }
                     }
                 }
 
-                // Name + location
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -314,7 +333,6 @@ private fun ProfileHero(
                             fontWeight = FontWeight.Black, color = Color.White,
                             style = LocalTextStyle.current.copy(
                                 shadow = Shadow(Color.Black.copy(0.5f), Offset(0f, 2f), 10f)))
-                        // Edit profile button
                         Surface(onClick = { showEditDialog = true },
                             modifier = Modifier.size(26.dp), shape = CircleShape,
                             color = Color.White.copy(0.15f),
@@ -330,7 +348,6 @@ private fun ProfileHero(
                             append(" · Since ${formatMonthYear(uiState.joinedDate!!)}")
                         }
                     }, fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
-                    // Email shown below name
                     if (!uiState.userEmail.isNullOrBlank()) {
                         Text(uiState.userEmail, fontSize = 10.sp,
                             color = Color.White.copy(alpha = 0.45f))
@@ -340,7 +357,6 @@ private fun ProfileHero(
 
             Spacer(Modifier.height(16.dp))
 
-            // Stats row
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassStatCard("${uiState.items.size}", "Posted", false, Modifier.weight(1f))
@@ -366,6 +382,103 @@ private fun ProfileHero(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// CURRENT PHOTO VIEWER — full-screen view of existing profile photo
+// ══════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun CurrentPhotoViewerDialog(
+    photoUri: String,
+    context: android.content.Context,
+    onDismiss: () -> Unit,
+    onChange: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.95f))
+                .clickable { onDismiss() }  // tap anywhere to close
+        ) {
+            // Full photo
+            val photoRequest = buildImageRequest(context, photoUri)
+            if (photoRequest != null) {
+                Image(
+                    painter            = rememberAsyncImagePainter(photoRequest),
+                    contentDescription = "Profile photo",
+                    modifier           = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .align(Alignment.Center)
+                        .clip(CircleShape)
+                        .clickable(onClick = {}),  // prevent dismiss when tapping image
+                    contentScale       = ContentScale.Crop
+                )
+            }
+
+            // Top label
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(Brush.verticalGradient(
+                        listOf(Color.Black.copy(0.8f), Color.Transparent)))
+                    .padding(top = 48.dp, bottom = 24.dp, start = 20.dp, end = 20.dp)
+            ) {
+                Text("Profile Photo", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Center))
+            }
+
+            // Bottom buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(0.9f))))
+                    .padding(horizontal = 24.dp, vertical = 40.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Close button
+                Surface(
+                    onClick   = onDismiss,
+                    modifier  = Modifier.weight(1f).height(50.dp),
+                    shape     = RoundedCornerShape(14.dp),
+                    color     = Color.White.copy(0.15f),
+                    border    = BorderStroke(1.dp, Color.White.copy(0.3f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("Close", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            color = Color.White)
+                    }
+                }
+
+                // Change photo button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5))))
+                        .clickable { onChange() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("📷", fontSize = 14.sp)
+                        Text("Change Photo", fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // EDIT PROFILE DIALOG
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -387,8 +500,6 @@ private fun EditProfileDialog(
         Surface(shape = RoundedCornerShape(20.dp), color = colors.cardBg, shadowElevation = 24.dp) {
             Column(modifier = Modifier.fillMaxWidth().padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)) {
-
-                // Header
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
@@ -402,69 +513,48 @@ private fun EditProfileDialog(
                         Text("Update your name and email", fontSize = 11.sp, color = colors.textMuted)
                     }
                 }
-
                 HorizontalDivider(color = colors.cardBorder)
-
-                // Full name field
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Full Name", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                         color = colors.textSecondary)
                     OutlinedTextField(
-                        value         = name,
-                        onValueChange = { name = it; nameError = null },
-                        placeholder   = { Text("e.g., Maria Santos", fontSize = 12.sp) },
-                        isError       = nameError != null,
+                        value = name, onValueChange = { name = it; nameError = null },
+                        placeholder = { Text("e.g., Maria Santos", fontSize = 12.sp) },
+                        isError = nameError != null,
                         supportingText = nameError?.let { { Text(it, fontSize = 9.sp, color = ModernError) } },
-                        colors        = outlinedFieldColors(colors),
-                        shape         = RoundedCornerShape(10.dp),
-                        modifier      = Modifier.fillMaxWidth(),
-                        singleLine    = true
-                    )
+                        colors = outlinedFieldColors(colors), shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
-
-                // Email field
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("University Email", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                         color = colors.textSecondary)
                     OutlinedTextField(
-                        value         = email,
-                        onValueChange = { email = it; emailError = null },
-                        placeholder   = { Text("e.g., maria@uni.edu", fontSize = 12.sp) },
-                        isError       = emailError != null,
+                        value = email, onValueChange = { email = it; emailError = null },
+                        placeholder = { Text("e.g., maria@uni.edu", fontSize = 12.sp) },
+                        isError = emailError != null,
                         supportingText = emailError?.let { { Text(it, fontSize = 9.sp, color = ModernError) } },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        colors        = outlinedFieldColors(colors),
-                        shape         = RoundedCornerShape(10.dp),
-                        modifier      = Modifier.fillMaxWidth(),
-                        singleLine    = true
-                    )
+                        colors = outlinedFieldColors(colors), shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
-
-                // Action buttons
-                Row(modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, colors.cardBorder),
+                        shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, colors.cardBorder),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textSecondary)) {
                         Text("Cancel", fontSize = 12.sp)
                     }
-                    Button(
-                        onClick = {
-                            val trimName  = name.trim()
-                            val trimEmail = email.trim()
-                            var valid = true
-                            if (trimName.length < 2) { nameError = "Name too short"; valid = false }
-                            if (!trimEmail.contains("@") || !trimEmail.contains(".")) {
-                                emailError = "Invalid email"; valid = false
-                            }
-                            if (valid) onSave(trimName, trimEmail)
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape    = RoundedCornerShape(10.dp),
-                        colors   = ButtonDefaults.buttonColors(containerColor = ModernAccent),
-                        enabled  = !isSaving
-                    ) {
+                    Button(onClick = {
+                        val trimName  = name.trim()
+                        val trimEmail = email.trim()
+                        var valid = true
+                        if (trimName.length < 2) { nameError = "Name too short"; valid = false }
+                        if (!trimEmail.contains("@") || !trimEmail.contains(".")) {
+                            emailError = "Invalid email"; valid = false
+                        }
+                        if (valid) onSave(trimName, trimEmail)
+                    }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ModernAccent),
+                        enabled = !isSaving) {
                         if (isSaving) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp),
                                 color = Color.White, strokeWidth = 2.dp)
@@ -490,7 +580,7 @@ private fun outlinedFieldColors(colors: AppColors) = OutlinedTextFieldDefaults.c
 )
 
 // ══════════════════════════════════════════════════════════════════════════
-// GLASS STAT CARD (hero)
+// GLASS STAT CARD
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -567,7 +657,6 @@ private fun AchievementBadge(
 @Composable
 private fun MessengerSection(uiState: UserProfileUiState, colors: AppColors, viewModel: UserProfileViewModel) {
     var showDialog by remember { mutableStateOf(false) }
-
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, start = 14.dp, end = 14.dp)) {
         SectionLabel("CONTACT INFO", colors)
         Surface(modifier = Modifier.fillMaxWidth().clickable { showDialog = true },
@@ -846,7 +935,7 @@ private fun LogoutSection(onLogout: () -> Unit, colors: AppColors) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// PHOTO PREVIEW + CONFIRM DIALOG
+// PHOTO PREVIEW + CONFIRM DIALOG (for new photo selection)
 // ══════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -855,85 +944,46 @@ private fun PhotoPreviewConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val colors = LocalAppColors.current
     Dialog(
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false
-        )
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Box(
-            modifier = androidx.compose.ui.Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.9f))
-        ) {
-            // Full preview image
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.9f))) {
             Image(
                 painter            = rememberAsyncImagePainter(uri),
                 contentDescription = "Profile photo preview",
-                modifier           = androidx.compose.ui.Modifier
+                modifier           = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .align(Alignment.Center)
                     .clip(CircleShape),
                 contentScale       = ContentScale.Crop
             )
-
-            // Top label
-            Box(
-                modifier = androidx.compose.ui.Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(listOf(Color.Black.copy(0.7f), Color.Transparent))
-                    )
-                    .padding(20.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(0.7f), Color.Transparent)))
+                .padding(20.dp)) {
                 Text("Preview photo", fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = androidx.compose.ui.Modifier.align(Alignment.Center))
+                    color = Color.White, modifier = Modifier.align(Alignment.Center))
             }
-
-            // Bottom action buttons
-            Row(
-                modifier = androidx.compose.ui.Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.85f)))
-                    )
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Cancel
-                Surface(
-                    onClick   = onDismiss,
-                    modifier  = androidx.compose.ui.Modifier.weight(1f).height(50.dp),
-                    shape     = RoundedCornerShape(14.dp),
-                    color     = Color.White.copy(0.15f),
-                    border    = BorderStroke(1.dp, Color.White.copy(0.3f))
-                ) {
+            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.85f))))
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Surface(onClick = onDismiss, modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(14.dp), color = Color.White.copy(0.15f),
+                    border = BorderStroke(1.dp, Color.White.copy(0.3f))) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("Retake", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            color = Color.White)
+                        Text("Retake", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     }
                 }
-
-                // Confirm
-                Box(
-                    modifier = androidx.compose.ui.Modifier
-                        .weight(1f)
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5))))
-                        .clickable { onConfirm() },
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(listOf(ModernAccent, Color(0xFF4F46E5))))
+                    .clickable { onConfirm() },
+                    contentAlignment = Alignment.Center) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("✓", fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Use Photo", fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                            color = Color.White)
+                        Text("Use Photo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
